@@ -737,10 +737,10 @@ impl VirtQueue {
         ln.flags &= !DESC_F_NEXT;
         self.free_head = ln.next;
         unsafe {
-            let ring = self.avail.add(2) as *mut u16;
+            let ring = self.avail.byte_add(4) as *mut u16; // BYTES! (avail é *mut u16)
             *ring.add((self.avail_idx % self.size) as usize) = head;
             self.avail_idx += 1;
-            *(self.avail.add(1)) = self.avail_idx;
+            core::ptr::write_volatile(self.avail.byte_add(2) as *mut u16, self.avail_idx); // idx@byte2, volatile (DMA)
         }
         head
     }
@@ -976,14 +976,14 @@ echo "DATA-OK: $OUT"
 ```bash
 #!/usr/bin/env bash
 set -uo pipefail
-(printf 'ls\ncat HELLO.TXT\n' | sleep 25) | timeout 30 qemu-system-x86_64 -M q35 -m 512M -display none -serial stdio \
+{ sleep 12; printf 'ls\ncat HELLO.TXT\n'; sleep 13; } | timeout 30 qemu-system-x86_64 -M q35 -m 512M -display none -serial stdio \
   -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \
   -drive if=pflash,format=raw,file=/tmp/tuios-OVMF_VARS.fd \
   -drive file=disk.img,format=raw,if=ide \
   -drive file=data.img,format=raw,if=virtio > /tmp/f1-fs.log 2>&1 || true
 grep -a -q "FS-CAT-OK" /tmp/f1-fs.log && echo FS-ASSERT-OK || echo FS-ASSERT-PENDING
 ```
-(Nota: comandos chegam via stdin→serial; `read_line` ecoa; `cat HELLO.TXT` deve imprimir o conteúdo.)
+(Nota: input ANTES do boot é consumido pelo OVMF/Limine — comandos só após `sleep 12`; `read_line` ecoa.)
 
 - [ ] **Step 2: Rodar assert → PENDING**
 
@@ -1152,7 +1152,7 @@ set -uo pipefail
 mkdir -p /tmp/httpsrv && printf 'HTTP HELLO FROM HOST\n' > /tmp/httpsrv/hello.txt
 (python3 -m http.server 18080 --directory /tmp/httpsrv >/dev/null 2>&1 &) 
 sleep 1
-(printf 'net\nping\nhttp\n' | sleep 40) | timeout 45 qemu-system-x86_64 -M q35 -m 512M -display none -serial stdio \
+{ sleep 12; printf 'net\nping\nhttp\n'; sleep 28; } | timeout 45 qemu-system-x86_64 -M q35 -m 512M -display none -serial stdio \
   -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \
   -drive if=pflash,format=raw,file=/tmp/tuios-OVMF_VARS.fd \
   -drive file=disk.img,format=raw,if=ide \
@@ -1576,7 +1576,7 @@ set -uo pipefail
 mkdir -p /tmp/httpsrv && printf 'HTTP HELLO FROM HOST\n' > /tmp/httpsrv/hello.txt
 (python3 -m http.server 18080 --directory /tmp/httpsrv >/dev/null 2>&1 &)
 sleep 1
-(printf 'net\nping\n' | sleep 40) | timeout 45 qemu-system-x86_64 -M q35 -m 512M -display none -serial stdio \
+{ sleep 12; printf 'net\nping\n'; sleep 28; } | timeout 45 qemu-system-x86_64 -M q35 -m 512M -display none -serial stdio \
   -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \
   -drive if=pflash,format=raw,file=/tmp/tuios-OVMF_VARS.fd \
   -drive file=disk.img,format=raw,if=ide \
@@ -2106,7 +2106,7 @@ git commit -m "[FEAT] — AHCI leitura porta 0 sem reset + identify (Fase 1 T8)"
 ```bash
 #!/usr/bin/env bash
 set -uo pipefail
-(printf 'blk 0\n' | sleep 25) | timeout 30 qemu-system-x86_64 -M q35 -m 512M -display none -serial stdio \
+{ sleep 12; printf 'blk 0\n'; sleep 13; } | timeout 30 qemu-system-x86_64 -M q35 -m 512M -display none -serial stdio \
   -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \
   -drive if=pflash,format=raw,file=/tmp/tuios-OVMF_VARS.fd \
   -drive file=disk.img,format=raw,if=ide > /tmp/f1-nodev.log 2>&1 || true
@@ -2119,7 +2119,7 @@ grep -a -q "BLK: no block device (degraded)" /tmp/f1-nodev.log \
 ```bash
 #!/usr/bin/env bash
 set -uo pipefail
-(printf 'net\n' | sleep 25) | timeout 30 qemu-system-x86_64 -M q35 -m 512M -display none -serial stdio \
+{ sleep 12; printf 'net\n'; sleep 13; } | timeout 30 qemu-system-x86_64 -M q35 -m 512M -display none -serial stdio \
   -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \
   -drive if=pflash,format=raw,file=/tmp/tuios-OVMF_VARS.fd \
   -drive file=disk.img,format=raw,if=ide \

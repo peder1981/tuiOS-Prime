@@ -6,7 +6,9 @@ extern crate alloc;
 
 mod arch;
 mod heap;
+mod blk;
 mod pci;
+mod virtio;
 mod time;
 mod serial;
 mod shell;
@@ -60,7 +62,8 @@ pub extern "C" fn _start() -> ! {
         println!("pci {:02x}:{:02x}.{} {:04x}:{:04x} class={:02x}:{:02x}",
             d.bus, d.dev, d.func, d.vendor, d.device, d.class, d.subclass);
     }
-    println!("DRIVERS: none (fase0 ram+serial only)");
+    blk::probe_boot();
+    println!("DRIVERS: virtio-blk probed");
     shell::run();
 }
 

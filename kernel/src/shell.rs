@@ -9,11 +9,19 @@ pub fn run() -> ! {
         let n = serial::read_line(&mut buf);
         let line: &[u8] = &buf[..n];
         if line == b"help" as &[u8] {
-            println!("cmds: help echo time pci");
+            println!("cmds: help echo time pci blk");
         } else if line == b"echo" as &[u8] {
             println!("echo...");
         } else if line == b"time" as &[u8] {
             println!("{} ms", crate::time::millis());
+        } else if line.len() > 4 && &line[..4] == b"blk " as &[u8] {
+            let mut lba = 0u64;
+            let mut bad = false;
+            for &c in &line[4..] {
+                if !c.is_ascii_digit() { bad = true; break; }
+                lba = lba * 10 + (c - b'0') as u64;
+            }
+            if bad { println!("bad lba"); } else { crate::blk::cmd_read(lba); }
         } else if line == b"pci" as &[u8] {
             for d in crate::pci::enumerate() {
                 println!("pci {:02x}:{:02x}.{} {:04x}:{:04x} class={:02x}:{:02x}",
