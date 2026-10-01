@@ -25,7 +25,7 @@
 - `kernel/Cargo.toml` — deps novas: pic8259 0.11, linked_list_allocator 0.10, fatfs 0.3, smoltcp 0.12 (features medium-ethernet, proto-ipv4, socket-dhcpv4, socket-icmp, socket-tcp, socket-dns, proto-dns), bitflags 2.
 - `kernel/src/main.rs` — estende REQUEST_BLOCK (hhdm + memmap), init: serial → heap → gdt/idt/pic/pit → drivers (cada um fallível) → shell loop.
 - `kernel/src/serial.rs` — extraído do main: SerialPort global + `print!/println!` + `read_byte/read_line` bloqueantes.
-- `kernel/src/alloc.rs` — heap 16 MiB sobre entrada usable do memmap Limine (`LockedHeap`, `#[global_allocator]`).
+- `kernel/src/heap.rs` — heap 16 MiB sobre entrada usable do memmap Limine (`LockedHeap`, `#[global_allocator]`).
 - `kernel/src/arch.rs` — GDT (code/data ring0) + IDT (timer + `int3` teste) + PIC remap 0x20/0x28 + PIT 1 kHz.
 - `kernel/src/time.rs` — `TICKS: AtomicU64`, `millis() -> u64`, `Instant::now()` p/ smoltcp.
 - `kernel/src/pci.rs` — CAM 0xCF8/0xCFC, `enumerate() -> ArrayVec<PciDev, 32>`, `find(class|vendor:device)`, comando+bus master enable.
@@ -44,12 +44,12 @@
 ### Task 1: Heap + shell serial mínima
 
 **Files:**
-- Create: `kernel/src/serial.rs`, `kernel/src/alloc.rs`, `kernel/src/shell.rs`
+- Create: `kernel/src/serial.rs`, `kernel/src/heap.rs`, `kernel/src/shell.rs`
 - Modify: `kernel/src/main.rs` (REQUEST_BLOCK +hhdm/memmap, init ordenado, shell loop), `kernel/Cargo.toml` (+linked_list_allocator)
 
 **Interfaces:**
 - Consumes: `SERIAL` do main (movido p/ serial.rs).
-- Produces: `serial::println!`, `serial::read_line() -> ArrayString<128>`; `alloc::init_heap()`; `shell::run()` (loop; comandos `help echo`); marcador `SHELL-OK`.
+- Produces: `serial::println!`, `serial::read_line() -> ArrayString<128>`; `heap::init_heap()`; `shell::run()` (loop; comandos `help echo`); marcador `SHELL-OK`.
 
 - [ ] **Step 1: Escrever assert `scripts-assert/shell.assert.sh`**
 
@@ -128,7 +128,7 @@ pub fn read_line(buf: &mut [u8]) -> usize {
 }
 ```
 
-`kernel/src/alloc.rs`:
+`kernel/src/heap.rs`:
 ```rust
 use core::sync::atomic::{AtomicUsize, Ordering};
 use limine::request::{HhdmRequest, MemoryMapRequest};
@@ -198,7 +198,7 @@ pub fn run() -> ! {
 
 extern crate alloc;
 
-mod alloc;
+mod heap;
 mod serial;
 mod shell;
 
@@ -259,7 +259,7 @@ Expected: `SHELL-ASSERT-OK` (e `HEAP-OK` no log).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add kernel/src/serial.rs kernel/src/alloc.rs kernel/src/shell.rs kernel/src/main.rs kernel/Cargo.toml kernel/Cargo.lock scripts-assert/shell.assert.sh
+git add kernel/src/serial.rs kernel/src/heap.rs kernel/src/shell.rs kernel/src/main.rs kernel/Cargo.toml kernel/Cargo.lock scripts-assert/shell.assert.sh
 git commit -m "[FEAT] — heap 16MiB + shell serial minima (Fase 1 T1)"
 ```
 ---
@@ -705,7 +705,7 @@ impl VirtQueue {
     }
 
     fn phys(p: *const u8) -> u64 {
-        (p as u64).wrapping_sub(crate::alloc::hhdm_offset())
+        (p as u64).wrapping_sub(crate::heap::hhdm_offset())
     }
 
     pub fn setup_legacy(&mut self, io: u16, sel: u16) {
@@ -922,7 +922,7 @@ pub fn cmd_read(lba: u64) {
 ```
 
 Notas de implementação (contrato, sem placeholder):
-- `crate::alloc::hhdm_offset()` precisa existir: retorna `HHDM offset` guardado no init
+- `crate::heap::hhdm_offset()` precisa existir: retorna `HHDM offset` guardado no init
   (adicione `static HHDM_OFF: AtomicUsize` em alloc.rs, set no `init_heap`, getter `hhdm_offset()`).
 - `VirtQueue::phys` subtrai o offset HHDM (heap vive em RAM mapeada no HHDM).
 - Timeout do xfer = 1M spins + retry 3x no trait (spec: timeout+retry, EIO, sem panic).
@@ -942,7 +942,7 @@ ou rode com data.img vazia de 32M. Decisão: implemente `mkdata.sh` agora, Task 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add kernel/src/virtio.rs kernel/src/blk.rs kernel/src/main.rs kernel/src/shell.rs kernel/src/alloc.rs kernel/Cargo.toml kernel/Cargo.lock shared/mkdata.sh scripts-assert/blk.assert.sh
+git add kernel/src/virtio.rs kernel/src/blk.rs kernel/src/main.rs kernel/src/shell.rs kernel/src/heap.rs kernel/Cargo.toml kernel/Cargo.lock shared/mkdata.sh scripts-assert/blk.assert.sh
 git commit -m "[FEAT] — virtio-blk leitura/escrita 512B + retry (Fase 1 T4)"
 ```
 ---
@@ -1678,7 +1678,7 @@ impl E1000 {
         if is_io {
             return Err("e1000 bar0 not MMIO");
         }
-        let hhdm = crate::alloc::hhdm_offset() as u64;
+        let hhdm = crate::heap::hhdm_offset() as u64;
         let mmio = (addr + hhdm) as *mut u32;
         // MAC via RAL0/RAH0 (QEMU pré-programa; se inválido -> degraded, EEPROM fica Fase 3)
         let ral = mm_r(mmio, RAL0);
@@ -1742,7 +1742,7 @@ impl E1000 {
         // copia p/ buffer próprio (heap) p/ phys estável
         let mut owned = alloc::vec![0u8; pkt.len()];
         owned.copy_from_slice(pkt);
-        let hhdm = crate::alloc::hhdm_offset() as u64;
+        let hhdm = crate::heap::hhdm_offset() as u64;
         let leaked: &'static mut [u8] = alloc::boxed::Box::leak(owned.into_boxed_slice());
         self.tx[t].addr = (leaked.as_ptr() as u64).wrapping_sub(hhdm);
         self.tx[t].length = leaked.len() as u16;
@@ -1918,7 +1918,7 @@ fn abar_w(base: *mut u8, off: u32, v: u32) {
 }
 
 fn phys(p: *const u8) -> u64 {
-    (p as u64).wrapping_sub(crate::alloc::hhdm_offset() as u64)
+    (p as u64).wrapping_sub(crate::heap::hhdm_offset() as u64)
 }
 
 fn wait_clear(base: *mut u8, port: u32, mask: u32) -> bool {
@@ -1955,7 +1955,7 @@ fn issue_28(cmd: u8, lba: u64, count: u16, buf_phys: u64, base: *mut u8, port: u
     db[12..16].copy_from_slice(&((8192 - 1) as u32).to_le_bytes());
     // command list @ CLB (1 entrada)
     let clb = abar_r(base, port + PXCLB) as u64 | ((abar_r(base, port + PXCLB + 4) as u64) << 32);
-    let cl = unsafe { core::slice::from_raw_parts_mut((clb + crate::alloc::hhdm_offset() as u64) as *mut CmdHeader, 1) };
+    let cl = unsafe { core::slice::from_raw_parts_mut((clb + crate::heap::hhdm_offset() as u64) as *mut CmdHeader, 1) };
     cl[0].flags = 5 << 8; // CFL=5 dwords
     cl[0].prdtl = 1;
     let ctp = phys(ct.as_ptr());
@@ -1991,7 +1991,7 @@ pub fn probe_boot() {
         crate::println!("AHCI: abar not MMIO (degraded)");
         return;
     }
-    let hhdm = crate::alloc::hhdm_offset();
+    let hhdm = crate::heap::hhdm_offset();
     let abar = (addr + hhdm as u64) as *mut u8;
     // porta 0 com dispositivo? (PxSSTS DET==3, PxSIG==0x101)
     let mut found: Option<u32> = None;
