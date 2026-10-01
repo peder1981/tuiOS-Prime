@@ -6,6 +6,7 @@ extern crate alloc;
 
 mod arch;
 mod heap;
+mod pci;
 mod time;
 mod serial;
 mod shell;
@@ -53,6 +54,12 @@ pub extern "C" fn _start() -> ! {
         Err(e) => println!("HEAP-FAIL {}", e),
     }
     arch::init();
+    let devs = pci::enumerate();
+    println!("PCI-OK n={}", devs.len());
+    for d in &devs {
+        println!("pci {:02x}:{:02x}.{} {:04x}:{:04x} class={:02x}:{:02x}",
+            d.bus, d.dev, d.func, d.vendor, d.device, d.class, d.subclass);
+    }
     println!("DRIVERS: none (fase0 ram+serial only)");
     shell::run();
 }
