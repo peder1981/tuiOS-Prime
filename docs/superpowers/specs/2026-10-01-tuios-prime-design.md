@@ -64,3 +64,11 @@ Ponte (Fase 3): kernel emite eventos texto-JSON na serial; tuiOS `tuios --listen
 
 - Q1/C: trilha dupla (núcleo educacional + ISO utilizável). Q2/C: ambos os critérios de sucesso em 30 dias. Q3/C: x86_64 UEFI/QEMU primeiro, ARM64 F4. Q4/A: Rust. Q5/C: base Nix reprodutível.
 - Abordagem escolhida: 1 (monorepo dual-track ao lado do clone, tuiOS como flake input).
+
+## Emenda 2026-10-01 — AdvPP como compilador padrão (nível A, Fase 2)
+
+- `flake.nix` ganha input `advpp` (`github:<org>/AdvPP`, fonte; Go >= 1.27 para build do fonte).
+- Escopo nível A: somente `cmd/advplc` (CLI puro, CGO=0, ~75MB estático). `adveditor`/`advpp-ide` (Fyne, CGO+display) FORA do ISO console.
+- `nixos/iso.nix`: `environment.systemPackages` inclui `advplc` + associação de arquivos `.prw/.tlpp` + template de pane tuiOS com shell AdvPP pronto.
+- Premissa absoluta do AdvPP inalterada: saída do compilador (binário linux/windows/darwin) não é afetada pelo embarque.
+- Execução: Fase 2 (não altera Fase 0/1). Níveis B (hooks/IDE) e C (apps de primeira classe) ficam como tracks futuras, fora deste spec.
