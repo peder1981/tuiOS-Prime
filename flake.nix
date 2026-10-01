@@ -4,12 +4,18 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
     tuios.url = "github:peder1981/tuiOS";
   };
-  outputs = { self, nixpkgs, ... }: {
-    devShells.x86_64-linux.default =
-      nixpkgs.legacyPackages.x86_64-linux.mkShell {
-        packages = with nixpkgs.legacyPackages.x86_64-linux; [
-          just qemu OVMF rustup
-        ];
+  outputs = { self, nixpkgs, ... }:
+    let system = "x86_64-linux";
+    in {
+      devShells.${system}.default =
+        nixpkgs.legacyPackages.${system}.mkShell {
+          packages = with nixpkgs.legacyPackages.${system}; [
+            just qemu OVMF rustup
+          ];
+        };
+      nixosConfigurations.iso = nixpkgs.lib.nixosSystem {
+        inherit system;
+        modules = [ ./nixos/iso.nix ];
       };
-  };
+    };
 }
