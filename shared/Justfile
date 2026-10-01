@@ -1,0 +1,13 @@
+default: check
+
+check:
+    @echo "FASE0-CHECK-OK"
+
+qemu-kernel:
+    @echo "TODO Fase0 Task2: boot kernel no QEMU"
+
+qemu-iso:
+    @echo "TODO Fase0 Task3: boot ISO no QEMU"
+
+iso:
+    @echo "TODO Fase0 Task3: nix build ISO"

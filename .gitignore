@@ -1,0 +1,7 @@
+/result
+/result-*
+/target/
+kernel/target/
+.iso/
+*.iso
+.direnv/
