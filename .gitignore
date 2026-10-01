@@ -5,3 +5,5 @@ kernel/target/
 .iso/
 *.iso
 .direnv/
+/disk.img
+*.img

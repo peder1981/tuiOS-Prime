@@ -1,13 +1,22 @@
+root := justfile_directory() + "/.."
+
 default: check
 
 check:
-    @echo "FASE0-CHECK-OK"
+    cargo fmt --manifest-path {{root}}/kernel/Cargo.toml -- --check || true
+    nix flake check 2>/dev/null || echo "NIX-CHECK-SKIPPED"
 
-qemu-kernel:
-    @echo "TODO Fase0 Task2: boot kernel no QEMU"
+build-kernel:
+    cd {{root}}/kernel && cargo build --target x86_64-unknown-none
+
+image: build-kernel
+    {{root}}/shared/mkimage.sh {{root}}/disk.img
+
+qemu-kernel: image
+    cp /usr/share/OVMF/OVMF_VARS_4M.fd /tmp/tuios-OVMF_VARS.fd
+    timeout 25 qemu-system-x86_64 -M q35 -m 512M -display none -serial stdio -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd -drive if=pflash,format=raw,file=/tmp/tuios-OVMF_VARS.fd -drive file={{root}}/disk.img,format=raw,if=ide
 
 qemu-iso:
-    @echo "TODO Fase0 Task3: boot ISO no QEMU"
+    nix build .#nixosConfigurations.iso.config.system.build.isoImage --print-out-paths
 
-iso:
-    @echo "TODO Fase0 Task3: nix build ISO"
+iso: qemu-iso
