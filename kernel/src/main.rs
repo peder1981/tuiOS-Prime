@@ -1,9 +1,12 @@
 #![no_std]
+#![feature(abi_x86_interrupt)]
 #![no_main]
 
 extern crate alloc;
 
+mod arch;
 mod heap;
+mod time;
 mod serial;
 mod shell;
 
@@ -49,6 +52,7 @@ pub extern "C" fn _start() -> ! {
         Ok(_) => println!("HEAP-OK"),
         Err(e) => println!("HEAP-FAIL {}", e),
     }
+    arch::init();
     println!("DRIVERS: none (fase0 ram+serial only)");
     shell::run();
 }

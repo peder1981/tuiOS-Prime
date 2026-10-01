@@ -9,6 +9,8 @@ x86_64 = { version = "0.15", features = ["instructions"] }
 uart_16550 = "0.3"
 spinning_top = "0.3"
 linked_list_allocator = "0.10"
+pic8259 = "0.11"
+spin = "0.9"
 
 [profile.dev]
 panic = "abort"

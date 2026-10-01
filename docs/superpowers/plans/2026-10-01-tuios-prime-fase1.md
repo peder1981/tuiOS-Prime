@@ -272,7 +272,7 @@ git commit -m "[FEAT] — heap 16MiB + shell serial minima (Fase 1 T1)"
 
 **Interfaces:**
 - Consumes: `serial::println!`.
-- Produces: `arch::init()`; `time::millis() -> u64`; `time::Instant::now()` p/ smoltcp; marcador `TIME-OK`; comando `time` imprime ms + ticks.
+- Produces: `arch::init()`; `time::millis() -> u64` (`smol_instant::now()` só na T6); marcador `TIME-OK`; comando `time` imprime ms + ticks.
 
 - [ ] **Step 1: Escrever assert `scripts-assert/time.assert.sh`**
 
@@ -353,19 +353,12 @@ pub fn init() {
     crate::println!("TIME-OK base={}", TICKS.load(Ordering::Relaxed));
 }
 ```
-`kernel/src/time.rs`:
+`kernel/src/time.rs` (smoltcp ainda não é dep na T2 — `smol_instant` entra na T6):
 ```rust
 use core::sync::atomic::Ordering;
 
 pub fn millis() -> u64 {
     crate::arch::TICKS.load(Ordering::Relaxed)
-}
-
-pub mod smol_instant {
-    use smoltcp::time::Instant;
-    pub fn now() -> Instant {
-        Instant::from_millis(super::millis() as i64)
-    }
 }
 ```
 
@@ -374,6 +367,9 @@ pub mod smol_instant {
 pic8259 = "0.11"
 spin = "0.9"
 ```
+`kernel/src/main.rs` — topo: `#![feature(abi_x86_interrupt)]`
+(`extern "x86-interrupt"` AINDA experimental no nightly-2026-09-01).
+GDT via `Box::leak` + binding `&'static mut` (`append` exige `&mut`).
 
 `kernel/src/main.rs` — registrar `mod arch; mod time;`, chamar `arch::init();` após heap,
 e `shell.rs` ganha: `b"time" => println!("{} ms", crate::time::millis()),`.
