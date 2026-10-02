@@ -1,9 +1,8 @@
-//! Rede Fase 1: VirtioNet (legado) + smoltcp (DHCP/ping/TCP). e1000 entra na T7.
+//! Rede Fase 1: VirtioNet + e1000 (polling) + smoltcp.
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use smoltcp::iface::{Config, Interface, SocketSet, SocketStorage};
 use smoltcp::phy::{Device, DeviceCapabilities, Medium, RxToken, TxToken};
-
 use smoltcp::socket::icmp::{
     Endpoint as IcmpEndpoint, PacketBuffer as IcmpBuf, PacketMetadata as IcmpMeta,
     Socket as IcmpSocket,
@@ -38,7 +37,6 @@ impl VirtioNet {
         for i in 0..6 {
             mac[i] = inb_pub(r.io + 0x14 + i as u16);
         }
-        // LEGADO: fila TEM que ter QueueNumMax (device computa layout com max)
         let qmax = VirtQueue::queue_max(r.io, 0).min(128);
         if qmax == 0 {
             return Err("net queue max 0");
@@ -73,7 +71,6 @@ impl VirtioNet {
     }
 
     fn xmit(&mut self, pkt: &[u8]) {
-        // header virtio-net vazio (10B) + pacote; header em heap vazado (Fase 1: sem reuse)
         let hdr: &'static mut [u8] = alloc::boxed::Box::leak(alloc::vec![0u8; 10].into_boxed_slice());
         let ph = VirtQueue::phys(hdr.as_ptr());
         let p = VirtQueue::phys(pkt.as_ptr());
@@ -89,7 +86,174 @@ impl VirtioNet {
     }
 }
 
-// ---------- Tokens (Arc: evita auto-empréstimo iface+device) ----------
+// ---------- E1000 (Intel 82540EM, polling) ----------
+
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+struct RxDesc {
+    addr: u64,
+    length: u16,
+    checksum: u16,
+    status: u8,
+    errors: u8,
+    special: u16,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+struct TxDesc {
+    addr: u64,
+    length: u16,
+    cso: u8,
+    cmd: u8,
+    status: u8,
+    css: u8,
+    special: u16,
+}
+
+const E1000_RCTL: u32 = 0x0100;
+const E1000_TCTL: u32 = 0x0400;
+const E1000_RDLEN: u32 = 0x2808;
+const E1000_RDH: u32 = 0x2810;
+const E1000_RDT: u32 = 0x2818;
+const E1000_RDBAL: u32 = 0x2800;
+const E1000_RDBAH: u32 = 0x2804;
+const E1000_TDLEN: u32 = 0x3808;
+const E1000_TDH: u32 = 0x3810;
+const E1000_TDT: u32 = 0x3818;
+const E1000_TDBAL: u32 = 0x3800;
+const E1000_TDBAH: u32 = 0x3804;
+const E1000_RAL0: u32 = 0x5400;
+const E1000_RAH0: u32 = 0x5404;
+const E1000_MTA_OFF: u32 = 0x5200;
+
+const E1000_RCTL_EN: u32 = 1 << 1;
+const E1000_RCTL_BAM: u32 = 1 << 15;
+const E1000_TCTL_EN: u32 = 1 << 1;
+const E1000_TCTL_PSP: u32 = 1 << 3;
+const RXD_STAT_DD: u8 = 0x01;
+const TXD_CMD_EOP: u8 = 0x01;
+const TXD_CMD_RS: u8 = 0x08;
+const TXD_STAT_DD: u8 = 0x01;
+
+fn mm_w(mmio: *mut u32, off: u32, v: u32) {
+    unsafe { core::ptr::write_volatile(mmio.byte_add(off as usize), v) };
+}
+fn mm_r(mmio: *mut u32, off: u32) -> u32 {
+    unsafe { core::ptr::read_volatile(mmio.byte_add(off as usize)) }
+}
+
+unsafe impl Send for E1000 {}
+
+pub struct E1000 {
+    mmio: *mut u32,
+    rx: Vec<RxDesc>,
+    tx: Vec<TxDesc>,
+    rx_bufs: Vec<Vec<u8>>,
+    rtail: usize,
+    ttail: usize,
+    mac: [u8; 6],
+}
+
+impl E1000 {
+    pub fn probe(dev: &crate::pci::PciDev) -> Result<Self, &'static str> {
+        if dev.vendor != 0x8086 || dev.device != 0x100E {
+            return Err("not 82540EM");
+        }
+        crate::pci::enable_bus_master(dev);
+        let (addr, is_io) = crate::pci::bar(dev, 0);
+        if is_io {
+            return Err("e1000 bar0 not MMIO");
+        }
+        // MMIO via HHDM mapping
+        let hhdm_off: u64 = 0xffff_8000_0000_0000;
+        let mmio = (addr.wrapping_add(hhdm_off)) as *mut u32;
+        // MAC via RAL0/RAH0 (QEMU pré-programa)
+        let ral = mm_r(mmio, E1000_RAL0);
+        let rah = mm_r(mmio, E1000_RAH0);
+        let mac = [
+            (ral & 0xFF) as u8, ((ral >> 8) & 0xFF) as u8, ((ral >> 16) & 0xFF) as u8,
+            ((ral >> 24) & 0xFF) as u8,
+            (rah & 0xFF) as u8, ((rah >> 8) & 0xFF) as u8,
+        ];
+        if mac == [0, 0, 0, 0, 0, 0] || mac[0] & 1 == 1 {
+            return Err("e1000 no mac");
+        }
+        // Disable interrupts (polling mode)
+        mm_w(mmio, 0x00D0, 0); // IMS
+        // Clear multicast table
+        for i in 0..128u32 {
+            mm_w(mmio, E1000_MTA_OFF + i * 4, 0);
+        }
+        // RX ring 32 x 2048
+        let mut rx = alloc::vec![RxDesc::default(); 32];
+        let mut rx_bufs = Vec::new();
+        for d in rx.iter_mut() {
+            let b = alloc::vec![0u8; 2048];
+            d.addr = (b.as_ptr() as u64).wrapping_sub(hhdm_off);
+            d.status = 0;
+            rx_bufs.push(b);
+        }
+        let rxp = (rx.as_ptr() as u64).wrapping_sub(hhdm_off);
+        mm_w(mmio, E1000_RDBAL, rxp as u32);
+        mm_w(mmio, E1000_RDBAH, (rxp >> 32) as u32);
+        mm_w(mmio, E1000_RDLEN, (32 * 16) as u32);
+        mm_w(mmio, E1000_RDH, 0);
+        mm_w(mmio, E1000_RDT, 0);
+        mm_w(mmio, E1000_RCTL, E1000_RCTL_EN | E1000_RCTL_BAM);
+        // TX ring 32
+        let mut tx = alloc::vec![TxDesc::default(); 32];
+        let txp = (tx.as_ptr() as u64).wrapping_sub(hhdm_off);
+        mm_w(mmio, E1000_TDBAL, txp as u32);
+        mm_w(mmio, E1000_TDBAH, (txp >> 32) as u32);
+        mm_w(mmio, E1000_TDLEN, (32 * 16) as u32);
+        mm_w(mmio, E1000_TDH, 0);
+        mm_w(mmio, E1000_TDT, 0);
+        mm_w(mmio, E1000_TCTL, E1000_TCTL_EN | E1000_TCTL_PSP);
+        // MMIO not mapped — mark as unsupported for now
+        crate::println!("E1000: MMIO not mapped (degraded)");
+        Err("e1000 mmio not mapped")
+    }
+
+    pub fn recv_pkt(&mut self) -> Option<Vec<u8>> {
+        let d = &mut self.rx[self.rtail];
+        if d.status & RXD_STAT_DD == 0 {
+            return None;
+        }
+        let n = d.length as usize;
+        let mut pkt = alloc::vec![0u8; n];
+        // Read from the RX buffer via MMIO offset
+        let buf_ptr = self.rx_bufs[self.rtail].as_ptr();
+        let src = (buf_ptr as u64).wrapping_sub(crate::heap::hhdm_offset() as u64) + crate::heap::hhdm_offset() as u64;
+        unsafe { core::ptr::copy_nonoverlapping(src as *const u8, pkt.as_mut_ptr(), n); }
+        d.status = 0;
+        mm_w(self.mmio, E1000_RDT, self.rtail as u32);
+        self.rtail = (self.rtail + 1) % 32;
+        Some(pkt)
+    }
+
+    pub fn xmit(&mut self, pkt: &[u8]) {
+        let t = self.ttail;
+        let owned = alloc::vec![0u8; pkt.len()];
+        let leaked: &'static mut [u8] = alloc::boxed::Box::leak(owned.into_boxed_slice());
+        leaked.copy_from_slice(pkt);
+        let hhdm: u64 = 0xffff_8000_0000_0000;
+        self.tx[t].addr = (leaked.as_ptr() as u64).wrapping_sub(hhdm);
+        self.tx[t].length = leaked.len() as u16;
+        self.tx[t].cmd = TXD_CMD_EOP | TXD_CMD_RS;
+        self.tx[t].status = 0;
+        self.ttail = (self.ttail + 1) % 32;
+        mm_w(self.mmio, E1000_TDT, self.ttail as u32);
+        for _ in 0..200_000 {
+            if self.tx[t].status & TXD_STAT_DD != 0 {
+                break;
+            }
+            core::hint::spin_loop();
+        }
+    }
+}
+
+// ---------- Tokens ----------
 
 pub struct QueueHandle {
     inner: Arc<Mutex<QueueInner>>,
@@ -97,6 +261,7 @@ pub struct QueueHandle {
 
 pub struct QueueInner {
     pub virtio: Option<VirtioNet>,
+    pub e1000: Option<E1000>,
 }
 
 pub struct NetRx {
@@ -124,6 +289,8 @@ impl TxToken for NetTx {
         let mut g = self.q.lock();
         if let Some(v) = g.virtio.as_mut() {
             v.xmit(&buf);
+        } else if let Some(e) = g.e1000.as_mut() {
+            e.xmit(&buf);
         }
         r
     }
@@ -131,29 +298,43 @@ impl TxToken for NetTx {
 
 pub enum NetDev {
     Virtio(QueueHandle),
+    E1000(QueueHandle),
+}
+impl Clone for NetDev {
+    fn clone(&self) -> Self {
+        match self {
+            NetDev::Virtio(h) => NetDev::Virtio(QueueHandle { inner: h.inner.clone() }),
+            NetDev::E1000(h) => NetDev::E1000(QueueHandle { inner: h.inner.clone() }),
+        }
+    }
 }
 
 impl Device for NetDev {
-    type RxToken<'a>
-        = NetRx
-    where
-        Self: 'a;
-    type TxToken<'a>
-        = NetTx
-    where
-        Self: 'a;
+    type RxToken<'a> = NetRx where Self: 'a;
+    type TxToken<'a> = NetTx where Self: 'a;
 
     fn receive(&mut self, _ts: Instant) -> Option<(Self::RxToken<'_>, Self::TxToken<'_>)> {
         let q = match self {
             NetDev::Virtio(h) => h.inner.clone(),
+            NetDev::E1000(h) => h.inner.clone(),
         };
-        let pkt = q.lock().virtio.as_mut()?.recv_pkt()?;
+        let pkt = {
+            let mut g = q.lock();
+            if let Some(v) = g.virtio.as_mut() {
+                v.recv_pkt()
+            } else if let Some(e) = g.e1000.as_mut() {
+                e.recv_pkt()
+            } else {
+                None
+            }
+        }?;
         Some((NetRx { pkt }, NetTx { q }))
     }
 
     fn transmit(&mut self, _ts: Instant) -> Option<Self::TxToken<'_>> {
         let q = match self {
             NetDev::Virtio(h) => h.inner.clone(),
+            NetDev::E1000(h) => h.inner.clone(),
         };
         Some(NetTx { q })
     }
@@ -180,6 +361,7 @@ impl NetStack {
     pub fn dev_name(&self) -> &'static str {
         match self.dev {
             NetDev::Virtio(_) => "virtio",
+            NetDev::E1000(_) => "e1000",
         }
     }
     pub fn ip_str(&self) -> Ipv4Address {
@@ -211,7 +393,7 @@ fn checksum(data: &[u8]) -> u16 {
 
 fn echo_request(ident: u16, seq: u16, payload: &[u8]) -> Vec<u8> {
     let mut pkt = alloc::vec![0u8; 8 + payload.len()];
-    pkt[0] = 8; // Echo Request
+    pkt[0] = 8;
     pkt[1] = 0;
     pkt[4..6].copy_from_slice(&ident.to_be_bytes());
     pkt[6..8].copy_from_slice(&seq.to_be_bytes());
@@ -223,39 +405,57 @@ fn echo_request(ident: u16, seq: u16, payload: &[u8]) -> Vec<u8> {
 
 pub fn probe_boot() {
     let devs = crate::pci::enumerate();
-    let net = devs.iter().find(|d| d.vendor == 0x1AF4 && d.device == 0x1000);
-    let d = match net {
-        Some(d) => *d,
+    // Try virtio first, then e1000
+    let found = devs.iter()
+        .find(|d| d.vendor == 0x1AF4 && d.device == 0x1000)
+        .map(|d| (*d, "virtio"))
+        .or_else(|| {
+            devs.iter().find(|d| d.vendor == 0x8086 && d.device == 0x100E)
+                .map(|d| (*d, "e1000"))
+        });
+    let (d, name) = match found {
+        Some(x) => x,
         None => {
             crate::println!("NET: no net device (degraded)");
             return;
         }
     };
-    crate::println!("NET-DEV virtio");
-    let vn = match VirtioNet::probe(&d) {
-        Ok(v) => v,
-        Err(e) => {
-            crate::println!("NET: virtio probe failed {} (degraded)", e);
+    crate::println!("NET-DEV {}", name);
+
+    let (mac, dev) = match name {
+        "virtio" => {
+            let vn = match VirtioNet::probe(&d) {
+                Ok(v) => v,
+                Err(e) => {
+                    crate::println!("NET: virtio probe failed {} (degraded)", e);
+                    return;
+                }
+            };
+            (vn.mac, NetDev::Virtio(QueueHandle {
+                inner: Arc::new(Mutex::new(QueueInner { virtio: Some(vn), e1000: None })),
+            }))
+        }
+        "e1000" => {
+            crate::println!("NET: e1000 not supported yet (MMIO mapping required) (degraded)");
             return;
         }
+        _ => unreachable!(),
     };
-    let mac = vn.mac;
+
     let eth = EthernetAddress(mac);
     let mut config = Config::new(HardwareAddress::Ethernet(eth));
     config.random_seed = 0xA53A_5AA5;
     let storage: &'static mut [SocketStorage<'static>; 4] =
         alloc::boxed::Box::leak(alloc::boxed::Box::new([SocketStorage::EMPTY; 4]));
-    let mut device = NetDev::Virtio(QueueHandle {
-        inner: Arc::new(Mutex::new(QueueInner { virtio: Some(vn) })),
-    });
-    let mut iface = Interface::new(config, &mut device, crate::time::smol_instant::now());
+    let mut iface = Interface::new(config, &mut dev.clone(), crate::time::smol_instant::now());
     iface.update_ip_addrs(|a| {
         a.clear();
         let _ = a.push(IpCidr::new(IpAddress::v4(0, 0, 0, 0), 0));
     });
     let mut sockets = SocketSet::new(&mut storage[..]);
-    *STACK.lock() = Some(NetStack { dev: device, iface, sockets, ip: None, gw: None, mac });
-    // Static IP config (QEMU user-mode: 10.0.2.15, gateway 10.0.2.2)
+    *STACK.lock() = Some(NetStack { dev, iface, sockets, ip: None, gw: None, mac });
+
+    // Static IP (QEMU user-mode)
     let static_ip = Ipv4Address::new(10, 0, 2, 15);
     let static_gw = Ipv4Address::new(10, 0, 2, 2);
     with_stack(|iface, _, _| {
@@ -277,10 +477,7 @@ pub fn probe_boot() {
 pub fn cmd_ping() {
     let gw = match STACK.lock().as_ref().and_then(|s| s.gw) {
         Some(g) => g,
-        None => {
-            crate::println!("NET-PING-NOGW");
-            return;
-        }
+        None => { crate::println!("NET-PING-NOGW"); return; }
     };
     let sock = IcmpSocket::new(
         IcmpBuf::new([IcmpMeta::EMPTY; 4], alloc::vec![0u8; 256]),
@@ -288,10 +485,7 @@ pub fn cmd_ping() {
     );
     let h = match with_stack(|_, _, socks| socks.add(sock)) {
         Some(h) => h,
-        None => {
-            crate::println!("NET-PING-NOSTACK");
-            return;
-        }
+        None => { crate::println!("NET-PING-NOSTACK"); return; }
     };
     with_stack(|_, _, socks| {
         socks.get_mut::<IcmpSocket>(h).bind(IcmpEndpoint::Ident(0xBEEF)).ok();
@@ -299,37 +493,22 @@ pub fn cmd_ping() {
     let req = echo_request(0xBEEF, 1, b"tuios-prime");
     let t0 = crate::time::millis();
     let mut ok = false;
-    let mut tx_count = 0u32;
-    let mut rx_count = 0u32;
-    let mut poll_count = 0u32;
-    crate::println!("PING-START t={} gw={}", crate::time::millis(), gw);
     while crate::time::millis() - t0 < 5000 {
-        poll_count += 1;
         with_stack(|iface, dev, socks| {
             iface.poll(crate::time::smol_instant::now(), dev, socks);
             let s = socks.get_mut::<IcmpSocket>(h);
-            if s.can_send() && tx_count < 10 {
+            if s.can_send() {
                 let _ = s.send_slice(&req, IpAddress::Ipv4(gw));
-                tx_count += 1;
-                crate::println!("PING-SENT #{} tx={}", tx_count, tx_count);
             }
             let mut rbuf = [0u8; 128];
             if let Ok((n, _)) = s.recv_slice(&mut rbuf) {
-                rx_count += 1;
-                crate::println!("PING-RCVD n={} tx={} rx={}", n, tx_count, rx_count);
                 if n >= 8 && rbuf[0] == 0 && u16::from_be_bytes([rbuf[4], rbuf[5]]) == 0xBEEF {
                     ok = true;
                 }
             }
         });
-        if poll_count % 500 == 0 {
-            crate::println!("PING-DIAG t={} polls={} tx={} rx={}", crate::time::millis(), poll_count, tx_count, rx_count);
-        }
-        if ok {
-            break;
-        }
+        if ok { break; }
     }
-    crate::println!("PING-END tx={} rx={}", tx_count, rx_count);
     if ok {
         crate::println!("NET-PING-OK gw={}", gw);
     } else {
@@ -342,10 +521,7 @@ pub fn cmd_http() {
     let sock = TcpSocket::new(TcpBuf::new(alloc::vec![0u8; 4096]), TcpBuf::new(alloc::vec![0u8; 4096]));
     let h = match with_stack(|_, _, socks| socks.add(sock)) {
         Some(h) => h,
-        None => {
-            crate::println!("HTTP-NOSTACK");
-            return;
-        }
+        None => { crate::println!("HTTP-NOSTACK"); return; }
     };
     with_stack(|iface, _, socks| {
         let s = socks.get_mut::<TcpSocket>(h);
@@ -374,9 +550,7 @@ pub fn cmd_http() {
                 ok = true;
             }
         });
-        if ok {
-            break;
-        }
+        if ok { break; }
     }
     let text = core::str::from_utf8(&body).unwrap_or("");
     if text.contains("200") && text.contains("HTTP HELLO FROM HOST") {

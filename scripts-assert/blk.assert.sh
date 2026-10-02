@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+cp /usr/share/OVMF/OVMF_VARS_4M.fd /tmp/tuios-OVMF_VARS.fd
 # robusto: espera SHELL-OK no log e só então digita (bytes precoces são comidos pelo OVMF)
 set -uo pipefail
 rm -f /tmp/f1-blk-in; mkfifo /tmp/f1-blk-in

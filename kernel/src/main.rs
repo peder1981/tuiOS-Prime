@@ -15,6 +15,7 @@ mod virtio;
 mod time;
 mod serial;
 mod shell;
+mod ahci;
 
 use core::panic::PanicInfo;
 use limine::request::{HhdmRequest, MemoryMapRequest, RequestsEndMarker, RequestsStartMarker};
@@ -68,6 +69,7 @@ pub extern "C" fn _start() -> ! {
     blk::probe_boot();
     fs::mount();
     net::probe_boot();
+    // ahci::probe_boot(); // TODO: MMIO mapping required
     println!("DRIVERS: virtio-blk probed");
     shell::run();
 }

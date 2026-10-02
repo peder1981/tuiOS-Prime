@@ -57,6 +57,7 @@ pub fn enumerate() -> Vec<PciDev> {
                 }
                 let device = (vd >> 16) as u16;
                 let classreg = read_u32(bus as u8, dev, func, 0x08);
+
                 out.push(PciDev {
                     bus: bus as u8,
                     dev,

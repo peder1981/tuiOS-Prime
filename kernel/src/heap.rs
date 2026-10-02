@@ -16,6 +16,7 @@ pub fn init_heap() -> Result<usize, &'static str> {
     let (memmap, hhdm) = crate::limine_requests();
     let memmap = memmap.ok_or("no memmap")?;
     let hhdm = hhdm.ok_or("no hhdm")? as usize;
+    crate::println!("HHDM-OFF={:#x}", hhdm);
     HHDM_OFF.store(hhdm, Ordering::Relaxed);
     for e in memmap.entries() {
         if e.entry_type == limine::memory_map::EntryType::USABLE && (e.length as usize) >= HEAP_BYTES {

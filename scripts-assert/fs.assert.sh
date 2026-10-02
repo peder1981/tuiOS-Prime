@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+cp /usr/share/OVMF/OVMF_VARS_4M.fd /tmp/tuios-OVMF_VARS.fd
 set -uo pipefail
 rm -f /tmp/f1-fs-in; mkfifo /tmp/f1-fs-in
 ( for i in $(seq 1 25); do sleep 1; grep -a -q "SHELL-OK" /tmp/f1-fs.log 2>/dev/null && break; done

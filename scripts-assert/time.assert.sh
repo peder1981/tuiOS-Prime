@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+cp /usr/share/OVMF/OVMF_VARS_4M.fd /tmp/tuios-OVMF_VARS.fd
 set -uo pipefail
 timeout 20 qemu-system-x86_64 -M q35 -m 512M -display none -serial stdio \
   -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \

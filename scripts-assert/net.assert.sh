@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+cp /usr/share/OVMF/OVMF_VARS_4M.fd /tmp/tuios-OVMF_VARS.fd
 set -uo pipefail
 mkdir -p /tmp/httpsrv && printf 'HTTP HELLO FROM HOST\n' > /tmp/httpsrv/hello.txt
 (python3 -m http.server 18080 --directory /tmp/httpsrv >/dev/null 2>&1 &)
