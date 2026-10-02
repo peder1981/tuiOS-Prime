@@ -1,0 +1,29 @@
+title: tuiOS-Prime
+description: Sistema Operacional de Linha de Comando — Kernel Rust bare-metal
+url: https://peder1981.github.io
+baseurl: /tuiOS-Prime
+locale: pt_BR
+encoding: utf-8
+
+# Markdown
+markdown: kramdown
+kramdown:
+  parse_block_html: true
+
+# Defaults
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+      language: pt-BR
+
+# Plugins
+plugins:
+  - jekyll-seo-tag
+
+# Exclude
+exclude:
+  - README.md
+  - CHANGELOG.md
+  - LICENSE
