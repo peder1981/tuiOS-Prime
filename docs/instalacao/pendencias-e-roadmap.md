@@ -42,7 +42,7 @@
 | Task | Descrição | Status |
 |------|-----------|--------|
 | **T16** | Módulo NixOS para tuiOS | 📋 Pendente |
-| **T17** | Build reproduzível da ISO | 📋 Pendente |
+| **T17** | Build reproduzível da ISO | ✅ Concluído | ISO de 1,2GB gerada e boot validado |
 | **T18** | Driver virtio-gpu (framebuffer) | 📋 Pendente |
 | **T19** | Driver Intel HDA (áudio) | 📋 Pendente |
 | **T20** | Menu unificado Limine (Linux + Rust) | 📋 Pendente |

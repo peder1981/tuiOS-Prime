@@ -1,4 +1,4 @@
-{ modulesPath, pkgs, tuios, advplc, ... }:
+{ modulesPath, pkgs, lib, tuios, advplc, ... }:
 
 {
   imports = [
@@ -8,8 +8,13 @@
 
   networking.hostName = "tuios-prime";
 
-  # Login automático como root no console
-  services.getty.autologinUser = "root";
+  # Login automático como root no console serial (ttyS0).
+  # IMPORTANTE: o getty do tty1 fica DESABILITADO porque a sessão
+  # tuios-session assume o tty1 com exclusividade. Sem isso, getty e
+  # tuios disputam o mesmo terminal e o tuios recebe SIGHUP.
+  services.getty.autologinUser = lib.mkForce "root";
+  systemd.services."getty@tty1".enable = false;
+  systemd.services."autovt@tty1".enable = false;
 
   # Sessão tuiOS — inicia automaticamente no boot (tty1, tela cheia).
   # Tenta anexar a uma sessão existente; senão, inicia uma nova.

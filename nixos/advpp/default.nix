@@ -1,12 +1,14 @@
-# Pacote Nix para o compilador AdvPP (advplc).
+# Pacote Nix para o compilador AdvPP (advplc 4.2.2).
 #
-# Estratégia: instala o binário pré-compilado (estático, CGO=0) em vez de
-# compilar o Go dentro do sandbox do Nix (o que exigiria rede para módulos).
+# Estratégia: instala o binário pré-compilado e corrige o interpretador
+# ELF com autoPatchelfHook (o binário foi ligado contra /lib64 do host,
+# que não existe no NixOS). Evita compilar o Go no sandbox (sem rede
+# para módulos).
 #
-# O caminho padrão aponta para o checkout local do AdvPP. Para usar outra
-# origem, sobrescreva o argumento `advppBin`, por exemplo:
+# O binário padrão vem do checkout local. Para outra origem, sobrescreva
+# o argumento `advppBin`, por exemplo:
 #   advplc = pkgs.callPackage ./nixos/advpp { advppBin = /caminho/para/advplc; };
-{ lib, stdenv, advppBin ? /home/peder/Projetos/AdvPP/advplc }:
+{ lib, stdenv, autoPatchelfHook, glibc, advppBin ? /home/peder/Projetos/AdvPP/advplc }:
 
 stdenv.mkDerivation {
   pname = "advplc";
@@ -14,6 +16,9 @@ stdenv.mkDerivation {
 
   src = advppBin;
   dontUnpack = true;
+
+  nativeBuildInputs = [ autoPatchelfHook ];
+  buildInputs = [ glibc ];
 
   installPhase = ''
     mkdir -p $out/bin
@@ -47,7 +52,7 @@ Executa o programa em modo web
 Compila para executável standalone
 .TP
 \fBdebug\fR \fIARQUIVO\fR
-Atende sessão DAP (debug) via stdio
+Atende sessão DAP (depuração) via stdio
 .TP
 \fBast\fR \fIARQUIVO\fR
 Exibe a árvore sintática (AST)
