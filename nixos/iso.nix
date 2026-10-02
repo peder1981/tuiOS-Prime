@@ -23,6 +23,9 @@
     # Compilador AdvPL/TLPP (do pacote local ./advpp)
     advplc
 
+    # Assistente de instalação
+    (pkgs.callPackage ../installer/package.nix { })
+
     # Utilitários
     pkgs.htop
     pkgs.pciutils
