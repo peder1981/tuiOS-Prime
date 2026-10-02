@@ -6,6 +6,8 @@ extern crate alloc;
 
 mod arch;
 mod heap;
+mod mem;
+mod net;
 mod blk;
 mod fs;
 mod pci;
@@ -65,6 +67,7 @@ pub extern "C" fn _start() -> ! {
     }
     blk::probe_boot();
     fs::mount();
+    net::probe_boot();
     println!("DRIVERS: virtio-blk probed");
     shell::run();
 }

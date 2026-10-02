@@ -9,11 +9,13 @@ pub fn run() -> ! {
         let n = serial::read_line(&mut buf);
         let line: &[u8] = &buf[..n];
         if line == b"help" as &[u8] {
-            println!("cmds: help echo time pci blk ls cat");
+            println!("cmds: help echo time pic pci blk ls cat net ping http");
         } else if line == b"echo" as &[u8] {
             println!("echo...");
         } else if line == b"time" as &[u8] {
             println!("{} ms", crate::time::millis());
+        } else if line == b"pic" as &[u8] {
+            crate::arch::cmd_diag_pic_pit();
         } else if line.len() > 4 && &line[..4] == b"blk " as &[u8] {
             let mut lba = 0u64;
             let mut bad = false;
@@ -29,6 +31,19 @@ pub fn run() -> ! {
                 Ok(name) => crate::fs::cmd_cat(name.trim()),
                 Err(_) => println!("bad name"),
             }
+        } else if line == b"net" as &[u8] {
+            crate::println!("SHELL-CMD: net");
+            match crate::net::STACK.lock().as_ref() {
+                Some(s) => {
+                    crate::println!("net {} ip={} gw={}", s.dev_name(), s.ip_str(), s.gw_str());
+                    crate::println!("SHELL-NET-DONE");
+                },
+                None => crate::println!("net: down (degraded)"),
+            }
+        } else if line == b"ping" as &[u8] {
+            crate::net::cmd_ping();
+        } else if line == b"http" as &[u8] {
+            crate::net::cmd_http();
         } else if line == b"pci" as &[u8] {
             for d in crate::pci::enumerate() {
                 println!("pci {:02x}:{:02x}.{} {:04x}:{:04x} class={:02x}:{:02x}",

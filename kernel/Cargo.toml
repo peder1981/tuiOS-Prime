@@ -12,6 +12,7 @@ linked_list_allocator = "0.10"
 pic8259 = "0.11"
 spin = "0.9"
 bitflags = "2"
+smoltcp = { version = "0.12", default-features = false, features = ["medium-ethernet", "proto-ipv4", "socket-dhcpv4", "socket-icmp", "socket-tcp", "socket-dns", "alloc"] }
 
 [profile.dev]
 panic = "abort"

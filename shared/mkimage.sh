@@ -12,7 +12,7 @@ CONF="${LIMINE_CONF:-$ROOT/kernel/limine.conf}"  # unified menu: shared/boot-men
 for t in mformat mmd mcopy mkfs.fat sgdisk; do
   command -v "$t" >/dev/null 2>&1 || { echo "FALTANDO: $t"; exit 1; }
 done
-test -f "$KERNEL" || { (cd "$ROOT/kernel" && cargo build --target x86_64-unknown-none); }
+test -f "$KERNEL" || { (cd "$ROOT/kernel" && export RUSTC_BOOTSTRAP=1 RUSTFLAGS="-C link-arg=-static -C link-arg=-no-pie -C link-arg=--image-base -C link-arg=0xffffffff80000000" && cargo build --target x86_64-unknown-none); }
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
