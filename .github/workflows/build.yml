@@ -23,8 +23,12 @@ jobs:
           ovmf \
           mtools \
           dosfstools \
-          gdisk \
-          just
+          gdisk
+    
+    - name: Instalar just
+      run: |
+        curl -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+        just --version
     
     - name: Configurar Rust nightly
       uses: dtolnay/rust-toolchain@nightly
