@@ -65,7 +65,7 @@ O package esta em `nixos/advpp/default.nix`:
 
 pkgs.stdenv.mkDerivation {
   pname = "advplc";
-  version = "4.3.2";
+  version = "4.2.2";
   
   src = /home/peder/Projetos/AdvPP;
   
