@@ -74,6 +74,9 @@ pub extern "C" fn _start() -> ! {
     net::probe_boot();
     ahci::probe_boot();
     println!("DRIVERS: all probed");
+    // Auto network diag (Fase 2)
+    crate::println!("NET-AUTO-TEST");
+    crate::net::cmd_ping();
     shell::run();
 }
 

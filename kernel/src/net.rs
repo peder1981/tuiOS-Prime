@@ -210,7 +210,7 @@ impl E1000 {
         mm_w(mmio, E1000_TDH, 0);
         mm_w(mmio, E1000_TDT, 0);
         mm_w(mmio, E1000_TCTL, E1000_TCTL_EN | E1000_TCTL_PSP);
-        Ok(E1000 {
+Ok(E1000 {
             mmio, rx, tx, rx_bufs, rtail: 0, ttail: 0, mac,
         })
     }
