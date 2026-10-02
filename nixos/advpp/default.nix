@@ -2,7 +2,7 @@
 
 pkgs.stdenv.mkDerivation {
   pname = "advplc";
-  version = "1.0.0";
+  version = "4.2.2";
   
   src = /home/peder/Projetos/AdvPP;
   
@@ -23,7 +23,7 @@ pkgs.stdenv.mkDerivation {
     # Criar manual
     mkdir -p $out/share/man/man1
     cat > $out/share/man/man1/advplc.1 << 'MAN'
-.TH ADVPLC 1 "AdvPP Compiler" "Version 1.0.0"
+.TH ADVPLC 1 "AdvPP Compiler" "Version 4.2.2"
 .SH NAME
 advplc \- Compilador AdvPL/TLPP
 .SH SYNOPSIS
