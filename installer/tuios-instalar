@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# tuios-instalar — assistente de instalação do tuiOS-Prime (PT-BR)
+set -euo pipefail
+
+VERS="1.0.0"
+BASE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB="$BASE/lib"
+[ -d "$LIB" ] || LIB="/etc/tuios-installer/lib"
+
+. "$LIB/ui.sh"
+. "$LIB/disco.sh"
+. "$LIB/rede.sh"
+. "$LIB/locale.sh"
+. "$LIB/instalar.sh"
+
+AUTO=0; SEM_REDE=0; ACEITAR=0; DISCO_ESCOLHIDO=""
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --auto)          AUTO=1; UI=0; shift ;;
+    --disco)         DISCO_ESCOLHIDO="${2:?uso: --disco /dev/x}"; shift 2 ;;
+    --sem-rede)      SEM_REDE=1; shift ;;
+    --aceitar-tudo)  ACEITAR=1; shift ;;
+    -h|--help) sed -n '2,14p' "$0"; exit 0 ;;
+    --version) echo "tuios-instalar $VERS"; exit 0 ;;
+    *) echo "opção desconhecida: $1 (use --help)" >&2; exit 2 ;;
+  esac
+done
+
+[ "$(id -u)" = 0 ] || { echo "Execute como root: sudo tuios-instalar" >&2; exit 1; }
+touch "$UI_LOG" 2>/dev/null || UI_LOG=/tmp/tuios-install.log
+
+# ---------- Etapa 1: pré-requisitos e disco ----------
+etapa1() {
+  ui_msg "tuiOS-Prime — Instalador v$VERS" \
+    "Este assistente instala o tuiOS-Prime em disco.\n\nO disco escolhido sera APAGADO por completo.\n$(locale_resumo)"
+  if [ ! -d /sys/firmware/efi ]; then
+    ui_erro "UEFI" "Modo UEFI não detectado — a instalação exige UEFI (Chromebook/PC moderno)."
+    return 1
+  fi
+  if [ -z "$DISCO_ESCOLHIDO" ]; then
+    local candidatos=() p
+    while IFS= read -r p; do [ -n "$p" ] && candidatos+=("$p"); done < <(discos_candidatos)
+    if [ "${#candidatos[@]}" -eq 0 ]; then
+      ui_erro "Disco" "Nenhum disco utilizável encontrado."
+      return 1
+    fi
+    DISCO_ESCOLHIDO=$(ui_menu "Escolher disco" "⚠ O disco selecionado sera APAGADO." "${candidatos[@]}") || DISCO_ESCOLHIDO=""
+    [ -n "$DISCO_ESCOLHIDO" ] || { ui_msg "Cancelado" "Nenhum disco selecionado."; return 1; }
+  fi
+  [ -b "$DISCO_ESCOLHIDO" ] || { ui_erro "Disco" "Disco inexistente: $DISCO_ESCOLHIDO"; return 1; }
+  if disco_e_live "$DISCO_ESCOLHIDO"; then
+    ui_erro "Disco" "$DISCO_ESCOLHIDO hospeda o sistema ao vivo — escolha outro disco."
+    return 1
+  fi
+  if [ "$ACEITAR" != 1 ]; then
+    ui_confirma_texto "Confirmação final" \
+      "Disco: $DISCO_ESCOLHIDO\nTODOS OS DADOS SERAO PERDIDOS." "APAGAR" \
+      || { ui_msg "Cancelado" "Instalação cancelada pelo usuário."; exit 0; }
+  fi
+  ui_log "DISCO-ALVO $DISCO_ESCOLHIDO"
+}
+
+# ---------- Etapa 2: rede ----------
+etapa2() {
+  if [ "$SEM_REDE" = 1 ]; then ui_msg "Rede" "Modo --sem-rede: instalação offline."; return 0; fi
+  rede_fluxo || ui_msg "Rede" "Seguindo SEM rede — a instalação funciona offline.\nO WiFi pode ser configurado depois, no sistema instalado."
+}
+
+# ---------- Etapa 3: resumo ----------
+etapa3() {
+  local rede="não conectada"
+  rede_conectada && rede="conectada"
+  local boot="systemd-boot (UEFI)"
+  if [ "$ACEITAR" != 1 ]; then
+    ui_yesno "Resumo da instalação" \
+      "Disco: $DISCO_ESCOLHIDO\nPartições: EFI 512M · swap 2G · root ext4 (resto)\nRede: $rede\nBoot: $boot\n$(locale_resumo)\n\nProsseguir?" \
+      || { ui_msg "Cancelado" "Instalação cancelada."; exit 0; }
+  fi
+}
+
+# ---------- Etapa 4/5: instalar ----------
+etapa4() {
+  if instalar_executar "$DISCO_ESCOLHIDO" 2>&1 | ui_caixa_progresso "Instalando tuiOS-Prime"; then
+    return 0
+  fi
+  return 1
+}
+
+main() {
+  etapa1 || exit 1
+  etapa2
+  etapa3
+  if etapa4; then
+    ui_msg "Concluído ✅" \
+      "Instalação concluída com sucesso!\n\nRemova o pendrive e reinicie.\nNo próximo boot o tuiOS inicia automaticamente."
+    exit 0
+  fi
+  ui_erro "Falha na instalação" \
+    "A instalação falhou. Detalhes em:\n$UI_LOG\n\nÚltimas linhas:\n$(tail -n 12 "$UI_LOG" 2>/dev/null || true)"
+  exit 1
+}
+
+main
