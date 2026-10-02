@@ -21,7 +21,20 @@ while [ $# -gt 0 ]; do
     --disco)         DISCO_ESCOLHIDO="${2:?uso: --disco /dev/x}"; shift 2 ;;
     --sem-rede)      SEM_REDE=1; shift ;;
     --aceitar-tudo)  ACEITAR=1; shift ;;
-    -h|--help) sed -n '2,14p' "$0"; exit 0 ;;
+    -h|--help) cat <<-USO
+Uso: tuios-instalar [OPCOES]
+
+Assistente de instalacao do tuiOS-Prime em disco (UEFI).
+
+Opcoes:
+  --disco /dev/x    Disco alvo (senao, menu interativo)
+  --sem-rede        Pula a etapa de WiFi (instalacao offline)
+  --aceitar-tudo    Modo automatico: nao pede confirmacoes (CI/testes)
+  --auto            Interface em texto puro (sem dialog)
+  --version         Mostra a versao
+  -h, --help        Esta ajuda
+USO
+      exit 0 ;;
     --version) echo "tuios-instalar $VERS"; exit 0 ;;
     *) echo "opção desconhecida: $1 (use --help)" >&2; exit 2 ;;
   esac
