@@ -1,113 +1,111 @@
-{ pkgs, ... }:
+# Pacote Nix para o compilador AdvPP (advplc).
+#
+# Estratégia: instala o binário pré-compilado (estático, CGO=0) em vez de
+# compilar o Go dentro do sandbox do Nix (o que exigiria rede para módulos).
+#
+# O caminho padrão aponta para o checkout local do AdvPP. Para usar outra
+# origem, sobrescreva o argumento `advppBin`, por exemplo:
+#   advplc = pkgs.callPackage ./nixos/advpp { advppBin = /caminho/para/advplc; };
+{ lib, stdenv, advppBin ? /home/peder/Projetos/AdvPP/advplc }:
 
-pkgs.stdenv.mkDerivation {
+stdenv.mkDerivation {
   pname = "advplc";
   version = "4.2.2";
-  
-  src = /home/peder/Projetos/AdvPP;
-  
-  nativeBuildInputs = [ pkgs.go pkgs.gopls ];
-  buildInputs = [ pkgs.go ];
-  
-  GO111MODULE = "on";
-  CGO_ENABLED = "0";
-  
-  buildPhase = ''
-    go build -ldflags="-X main.version=${version}" -o advplc ./cmd/advplc
-  '';
-  
+
+  src = advppBin;
+  dontUnpack = true;
+
   installPhase = ''
     mkdir -p $out/bin
-    mv advplc $out/bin/
-    
-    # Criar manual
+    install -m755 $src $out/bin/advplc
+
     mkdir -p $out/share/man/man1
     cat > $out/share/man/man1/advplc.1 << 'MAN'
-.TH ADVPLC 1 "AdvPP Compiler" "Version 4.2.2"
-.SH NAME
+.TH ADVPLC 1 "Compilador AdvPP" "Versão 4.2.2"
+.SH NOME
 advplc \- Compilador AdvPL/TLPP
-.SH SYNOPSIS
-\fBadvplc\fR \fICOMMAND\fR \fIFILE\fR [\fIOPTIONS\fR]
-.SH COMMANDS
+.SH SINOPSE
+\fBadvplc\fR \fICOMANDO\fR \fIARQUIVO\fR [\fIOPÇÕES\fR]
+.SH COMANDOS
 .TP
-\fBrun\fR \fIFILE\fR
+\fBrun\fR \fIARQUIVO\fR
 Compila e executa um arquivo AdvPL/TLPP
 .TP
-\fBcompile\fR \fIFILE\fR [\fB-o\fR \fIOUTPUT\fR]
-Compila para bytecode
+\fBcompile\fR \fIARQUIVO\fR [\fB-o\fR \fISAÍDA\fR]
+Compila o fonte para bytecode
 .TP
-\fBexec\fR \fIBYTESOCDE\fR
-Executa bytecode compilado
+\fBexec\fR \fIBYTECODE\fR
+Executa um arquivo de bytecode compilado
 .TP
-\fBcheck\fR \fIFILE\fR
-Valida sintaxe sem executar
+\fBcheck\fR \fIARQUIVO\fR
+Valida a sintaxe sem executar
 .TP
-\fBserve\fR \fIFILE\fR [\fB--port\fR \fIPORT\fR]
-Modo web
+\fBserve\fR \fIARQUIVO\fR [\fB--port\fR \fIPORTA\fR]
+Executa o programa em modo web
 .TP
-\fBbuild\fR \fIFILE\fR [\fB-o\fR \fIOUTPUT\fR] [\fB--gui\fR]
-Build standalone
+\fBbuild\fR \fIARQUIVO\fR [\fB-o\fR \fISAÍDA\fR] [\fB--gui\fR]
+Compila para executável standalone
 .TP
-\fBdebug\fR \fIFILE\fR
-Debug DAP
+\fBdebug\fR \fIARQUIVO\fR
+Atende sessão DAP (debug) via stdio
 .TP
-\fBast\fR \fIFILE\fR
-Mostra AST
+\fBast\fR \fIARQUIVO\fR
+Exibe a árvore sintática (AST)
 .TP
-\fBbytecode\fR \fIFILE\fR
-Mostra bytecode
-.SH OPTIONS
+\fBbytecode\fR \fIARQUIVO\fR
+Exibe o bytecode compilado
+.SH OPÇÕES
 .TP
-\fB--include\fR, \fB-I\fR \fIPATH\fR
-Adiciona path de includes
+\fB--include\fR, \fB-I\fR \fICAMINHO\fR
+Adiciona caminho de includes (pode repetir)
 .TP
-\fB--define\fR, \fB-D\fR \fINAME=VALUE\fR
-Define simbolo do preprocessor
+\fB--define\fR, \fB-D\fR \fINOME=VALOR\fR
+Define símbolo do pré-processador
 .TP
 \fB--ui\fR
-Habilita UI Fyne
+Habilita interface gráfica (Fyne)
 .TP
 \fB--headless\fR
-Desabilita UI (padrao)
+Desabilita interface gráfica (padrão)
 .TP
-\fB-o\fR \fIFILE\fR
-Arquivo de saida
+\fB-o\fR \fIARQUIVO\fR
+Arquivo de saída do comando compile
 .TP
 \fB--port\fR \fIN\fR
-Porta para modo web
+Porta do modo web (padrão 8080)
 .TP
 \fB-w\fR, \fB--watch\fR
-Hot reload no modo web
+No modo web: recompila ao salvar (hot reload)
 .TP
 \fB--gui\fR
-Marca como app desktop (Fyne window)
-.SH EXAMPLES
+No build: marca o programa como aplicativo desktop
+.SH EXEMPLOS
 .TP
-\fBadvplc run hello.prw\fR
-Compila e executa hello.prw
+\fBadvplc run ola.prw\fR
+Compila e executa ola.prw
 .TP
-\fBadvplc compile hello.prw -o hello.bytecode\fR
+\fBadvplc compile ola.prw -o ola.bytecode\fR
 Compila para bytecode
 .TP
-\fBadvplc exec hello.bytecode\fR
-Executa bytecode
+\fBadvplc exec ola.bytecode\fR
+Executa o bytecode
 .TP
-\fBadvplc check program.prw --include ./includes\fR
-Valida sintaxe
+\fBadvplc check prog.prw --include ./includes\fR
+Valida a sintaxe
 .TP
 \fBadvplc serve app.prw --port 9000 --watch\fR
-Modo web com hot reload
+Modo web com recarga automática
 .TP
 \fBadvplc build app.prw -o app --gui\fR
-Build standalone desktop
-.SH AUTHOR
+Gera executável desktop standalone
+.SH AUTOR
 Peder Munksgaard
-.SH "REPORTING BUGS"
-Report bugs to https://github.com/peder1981/AdvPP/issues
+.SH "RELATANDO PROBLEMAS"
+Relate problemas em https://github.com/peder1981/AdvPP/issues
 MAN
   '';
-  
-  meta = with pkgs.lib; {
+
+  meta = with lib; {
     description = "AdvPP - Compilador AdvPL/TLPP em Go";
     homepage = "https://github.com/peder1981/AdvPP";
     license = licenses.mit;

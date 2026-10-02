@@ -382,7 +382,7 @@ pub fn probe_boot() {
     let (d, name) = match found {
         Some(x) => x,
         None => {
-            crate::println!("NET: no net device (degraded)");
+            crate::println!("NET: no net device (degradado)");
             return;
         }
     };
@@ -393,7 +393,7 @@ pub fn probe_boot() {
             let vn = match VirtioNet::probe(&d) {
                 Ok(v) => v,
                 Err(e) => {
-                    crate::println!("NET: virtio probe failed {} (degraded)", e);
+                    crate::println!("NET: falha na deteccao virtio {} (degradado)", e);
                     return;
                 }
             };
@@ -411,7 +411,7 @@ pub fn probe_boot() {
                     }))
                 }
                 Err(e) => {
-                    crate::println!("NET: e1000 probe failed {} (degraded)", e);
+                    crate::println!("NET: falha na deteccao e1000 {} (degradado)", e);
                     return;
                 }
             }
@@ -540,10 +540,10 @@ pub fn cmd_ping() {
                 match s.send_slice(&req, IpAddress::Ipv4(target)) {
                     Ok(_) => {
                         sends += 1;
-                        crate::println!("PING: sent to {}", target);
+                        crate::println!("PING: enviado para {}", target);
                     }
                     Err(e) => {
-                        crate::println!("PING: send failed {:?}", e);
+                        crate::println!("PING: falha no envio {:?}", e);
                     }
                 }
             }
@@ -551,10 +551,10 @@ pub fn cmd_ping() {
             let mut rbuf = [0u8; 128];
             match s.recv_slice(&mut rbuf) {
                 Ok((n, _)) => {
-                    crate::println!("PING: recv {} bytes", n);
+                    crate::println!("PING: recebidos {} bytes", n);
                     if n >= 8 && rbuf[0] == 0 && u16::from_be_bytes([rbuf[4], rbuf[5]]) == 0xBEEF {
                         ok = true;
-                        crate::println!("PING: valid reply!");
+                        crate::println!("PING: resposta valida!");
                     }
                 }
                 Err(_) => {}
@@ -598,7 +598,7 @@ pub fn cmd_http() {
             if s.can_send() && !sent {
                 if s.send_slice(b"GET /hello.txt HTTP/1.0\r\nHost: x\r\n\r\n").is_ok() {
                     sent = true;
-                    crate::println!("HTTP: request sent");
+                    crate::println!("HTTP: requisicao enviada");
                 }
             }
             if s.can_recv() {

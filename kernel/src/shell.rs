@@ -1,22 +1,22 @@
 use crate::{print, println, serial};
 
-/// Comando advplc (stub para Fase 5)
+/// Comando advplc (ajuda; o compilador completo vive na ISO NixOS)
 fn cmd_advplc() {
     println!("AdvPP - Compilador AdvPL/TLPP");
-    println!("Usage: advplc <command> <file> [options]");
+    println!("Uso: advplc <comando> <arquivo> [opcoes]");
     println!("");
-    println!("Commands:");
-    println!("  run <file>          Compile and run");
-    println!("  compile <file> [-o <out>]  Compile to bytecode");
-    println!("  exec <bytecode>     Execute bytecode");
-    println!("  check <file>        Validate syntax");
-    println!("  serve <file> [--port <n>]  Web mode");
-    println!("  build <file> [-o <out>] [--gui]  Standalone build");
-    println!("  debug <file>        DAP debug server");
-    println!("  ast <file>          Print AST");
-    println!("  bytecode <file>     Print bytecode");
+    println!("Comandos:");
+    println!("  run <arq>            Compila e executa");
+    println!("  compile <arq> [-o <sai>]  Compila para bytecode");
+    println!("  exec <bytecode>      Executa o bytecode");
+    println!("  check <arq>          Valida a sintaxe");
+    println!("  serve <arq> [--port <n>]  Modo web");
+    println!("  build <arq> [-o <sai>] [--gui]  Gera executavel");
+    println!("  debug <arq>          Servidor de depuracao DAP");
+    println!("  ast <arq>            Exibe a AST");
+    println!("  bytecode <arq>       Exibe o bytecode");
     println!("");
-    println!("Note: Full advplc support requires NixOS ISO (Fase 5)");
+    println!("Nota: suporte completo na ISO NixOS (Fase 5)");
 }
 
 pub fn run() -> ! {
@@ -28,9 +28,9 @@ pub fn run() -> ! {
         let n = serial::read_line(&mut buf);
         let line: &[u8] = &buf[..n];
         if line == b"help" as &[u8] {
-            println!("cmds: help echo time pic pci blk ls cat net ping http advplc");
+            println!("comandos: help echo time pic pci blk ls cat net ping http advplc");
         } else if line == b"echo" as &[u8] {
-            println!("echo...");
+            println!("eco...");
         } else if line == b"time" as &[u8] {
             println!("{} ms", crate::time::millis());
         } else if line == b"pic" as &[u8] {
@@ -42,13 +42,13 @@ pub fn run() -> ! {
                 if !c.is_ascii_digit() { bad = true; break; }
                 lba = lba * 10 + (c - b'0') as u64;
             }
-            if bad { println!("bad lba"); } else { crate::blk::cmd_read(lba); }
+            if bad { println!("lba invalido"); } else { crate::blk::cmd_read(lba); }
         } else if line == b"ls" as &[u8] {
             crate::fs::cmd_ls();
         } else if line.len() > 4 && &line[..4] == b"cat " as &[u8] {
             match core::str::from_utf8(&line[4..]) {
                 Ok(name) => crate::fs::cmd_cat(name.trim()),
-                Err(_) => println!("bad name"),
+                Err(_) => println!("nome invalido"),
             }
         } else if line == b"net" as &[u8] {
             crate::println!("SHELL-CMD: net");
@@ -57,7 +57,7 @@ pub fn run() -> ! {
                     crate::println!("net {} ip={} gw={}", s.dev_name(), s.ip_str(), s.gw_str());
                     crate::println!("SHELL-NET-DONE");
                 },
-                None => crate::println!("net: down (degraded)"),
+                None => crate::println!("net: indisponivel (degradado)"),
             }
         } else if line == b"ping" as &[u8] {
             crate::net::cmd_ping();
@@ -71,7 +71,7 @@ pub fn run() -> ! {
                     d.bus, d.dev, d.func, d.vendor, d.device, d.class, d.subclass);
             }
         } else {
-            println!("unknown cmd");
+            println!("comando desconhecido");
         }
     }
 }

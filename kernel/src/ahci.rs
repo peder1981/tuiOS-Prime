@@ -45,14 +45,14 @@ pub fn probe_boot() {
     let c = match ctrl {
         Some(c) => c,
         None => {
-            crate::println!("AHCI: no ahci controller (degraded)");
+            crate::println!("AHCI: sem controlador (degradado)");
             return;
         }
     };
     crate::pci::enable_bus_master(&c);
     let (addr, is_io) = crate::pci::bar(&c, 5);
     if is_io {
-        crate::println!("AHCI: abar not MMIO (degraded)");
+        crate::println!("AHCI: abar nao e MMIO (degradado)");
         return;
     }
     let hhdm = crate::heap::hhdm_offset() as u64;
@@ -73,7 +73,7 @@ pub fn probe_boot() {
     let po = match found_port {
         Some(po) => po,
         None => {
-            crate::println!("AHCI: no sata device (degraded)");
+            crate::println!("AHCI: sem dispositivo sata (degradado)");
             return;
         }
     };
@@ -107,7 +107,7 @@ pub fn probe_boot() {
             }
         }
         Err(e) => {
-            crate::println!("AHCI: read fail {} (degraded)", e);
+            crate::println!("AHCI: falha de leitura {} (degradado)", e);
         }
     }
 }

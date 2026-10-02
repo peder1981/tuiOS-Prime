@@ -113,9 +113,9 @@ pub fn probe_boot() {
                 crate::println!("BLK-OK blocks={}", b.blocks());
                 *VIRTIO_BLK.lock() = Some(b);
             }
-            Err(e) => crate::println!("BLK: probe failed {} (degraded)", e),
+            Err(e) => crate::println!("BLK: falha na deteccao {} (degradado)", e),
         },
-        None => crate::println!("BLK: no block device (degraded)"),
+        None => crate::println!("BLK: no block device (degradado)"),
     }
 }
 

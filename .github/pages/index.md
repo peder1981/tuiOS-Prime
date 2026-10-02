@@ -26,7 +26,7 @@ just qemu-kernel
 - [Guia de Contribuição](/contribuicao/)
 - [Evidências por Fase](/docs/)
 
-## Chromebook Support
+## Suporte a Chromebook
 
 O tuiOS-Prime é otimizado para Chromebooks com hardware limitado:
 

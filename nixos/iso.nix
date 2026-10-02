@@ -1,24 +1,23 @@
-{ modulesPath, pkgs, tuios, ... }:
+{ modulesPath, pkgs, tuios, advplc, ... }:
 
 {
   imports = [
     (modulesPath + "/installer/cd-dvd/installation-cd-minimal.nix")
     ./hardware-qemu.nix
-    ./advpp
   ];
-  
+
   networking.hostName = "tuios-prime";
-  
-  # Autologin
+
+  # Login automático como root no console
   services.getty.autologinUser = "root";
-  
-  # Session tuiOS - inicia automaticamente no boot
+
+  # Sessão tuiOS — inicia automaticamente no boot (tty1, tela cheia).
+  # Tenta anexar a uma sessão existente; senão, inicia uma nova.
   systemd.services.tuios-session = {
-    description = "tuiOS fullscreen session";
+    description = "Sessão tuiOS em tela cheia";
     after = [ "getty@tty1.service" ];
     wantedBy = [ "multi-user.target" ];
     serviceConfig = {
-      # Executa tuios attach se daemon rodando, senao executa tuios direto
       ExecStart = "${pkgs.bash}/bin/bash -lc 'exec tuios attach || exec tuios'";
       StandardInput = "tty";
       TTYPath = "/dev/tty1";
@@ -26,42 +25,30 @@
       TTYVHangup = true;
     };
   };
-  
-  # Packages do sistema
-  environment.systemPackages = with pkgs; [
-    # tuiOS (terminal UI)
-    tuios.packages.${system}.default
-    
-    # AdvPP (compilador)
+
+  # Pacotes do sistema
+  environment.systemPackages = [
+    # Interface de terminal tuiOS (do flake input)
+    tuios.packages.${pkgs.system}.default
+
+    # Compilador AdvPL/TLPP (do pacote local ./advpp)
     advplc
-    
+
     # Utilitários
-    htop
-    pciutils
-    usbutils
-    vim
-    git
-    go
+    pkgs.htop
+    pkgs.pciutils
+    pkgs.usbutils
+    pkgs.vim
+    pkgs.git
+    pkgs.go
   ];
-  
-  # Variaveis de ambiente para AdvPP
+
+  # Banco de dados compartilhado do AdvPP (ver `advplc --help`)
   environment.variables = {
-    ADVPP_SRC = "/opt/advpp";
     ADVPP_DB = "/var/lib/advpp/advpp.db";
   };
-  
-  # Criar directories para AdvPP
+
   systemd.tmpfiles.rules = [
-    "d /opt/advpp 0755 root root -"
     "d /var/lib/advpp 0755 root root -"
-    "d /home/%u/.advpp 0755 %u %u -"
-  ];
-  
-  # Copiar fonte do AdvPP para o sistema
-  copyFiles = [
-    {
-      src = /home/peder/Projetos/AdvPP;
-      dst = "/opt/advpp";
-    }
   ];
 }

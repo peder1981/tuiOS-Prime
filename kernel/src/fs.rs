@@ -169,14 +169,14 @@ pub fn mount() {
     match parse_bpb() {
         Ok(g) => {
             if g.bytes_per_sector != 512 {
-                crate::println!("FS: sector size {} unsupported (degraded)", g.bytes_per_sector);
+                crate::println!("FS: setor {} nao suportado (degradado)", g.bytes_per_sector);
                 return;
             }
             *GEOM.lock() = Some(g);
             *MOUNTED.lock() = true;
             crate::println!("FS-OK");
         }
-        Err(_) => crate::println!("FS: no data disk (degraded)"),
+        Err(_) => crate::println!("FS: no data disk (degradado)"),
     }
 }
 
@@ -184,7 +184,7 @@ pub fn cmd_ls() {
     let g = match *GEOM.lock() {
         Some(g) => g,
         None => {
-            crate::println!("FS-LS-FAIL not mounted");
+            crate::println!("FS-LS-FAIL nao montado");
             return;
         }
     };
@@ -205,7 +205,7 @@ pub fn cmd_cat(name: &str) {
     let g = match *GEOM.lock() {
         Some(g) => g,
         None => {
-            crate::println!("FS-CAT-FAIL not mounted");
+            crate::println!("FS-CAT-FAIL nao montado");
             return;
         }
     };
@@ -219,7 +219,7 @@ pub fn cmd_cat(name: &str) {
     let ent = match entries.iter().find(|e| e.attr & 0x10 == 0 && upper(&e.name) == want) {
         Some(e) => e.clone(),
         None => {
-            crate::println!("FS-CAT-FAIL not found");
+            crate::println!("FS-CAT-FAIL nao encontrado");
             return;
         }
     };
