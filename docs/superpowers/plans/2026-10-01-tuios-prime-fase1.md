@@ -943,193 +943,44 @@ git commit -m "[FEAT] — virtio-blk leitura/escrita 512B + retry (Fase 1 T4)"
 ```
 ---
 
-### Task 5: Volume FAT32 de dados + mount + ls/cat
+### Task 5: Volume FAT32 de dados + mount + ls/cat (DECISÃO E: FAT32 próprio)
+
+**Decisão registrada (bloqueador 2026-10-01):** `fatfs 0.3.6` tem bug de packaging —
+`extern crate core_io` incondicional sob `not(feature="std")` com a dep opcional
+`core_io` nunca habilitada por nenhuma feature (E0463 verificado em 2 builds).
+Em vez de vendor-patch, FAT32 read-only próprio (~200 linhas, sem LFN, sem escrita).
+Escrita fica Fase 3 (logs). `fatfs`/`core_io` REMOVIDOS do Cargo.toml.
 
 **Files:**
-- Create: `shared/mkdata.sh`, `kernel/src/fs.rs`
-- Modify: `kernel/src/main.rs` (mount no boot: `FS-OK`/`FS: no data disk`), `kernel/src/shell.rs` (`ls`, `cat`), `kernel/Cargo.toml` (+fatfs), `shared/Justfile` (+qemu-fase1)
+- Create: `shared/mkdata.sh` (antecipado na T3), `kernel/src/fs.rs` (leitor próprio)
+- Modify: `kernel/src/main.rs` (`fs::mount()`), `kernel/src/shell.rs` (`ls`, `cat`),
+  `shared/Justfile` (`qemu-fase1`), sem novas deps no Cargo.toml.
 
 **Interfaces:**
-- Consumes: `blk::VIRTIO_BLK` (Mutex<Option<VirtioBlk>>), `alloc` (fatfs precisa de `alloc`).
-- Produces: `fs::mount() -> Result<(), &str>`; `fs::ls()`, `fs::cat(name) -> Result<(), &str>` (imprime conteúdo);
-  marcadores `FS-OK files=n` / `FS: no data disk (degraded)`; `FS-CAT-OK`.
+- Consumes: `blk::VIRTIO_BLK` + `blk::BlockDevice`, `alloc`.
+- Produces: `fs::mount()` (`FS-OK`/`FS: no data disk (degraded)`); `fs::cmd_ls/cat`;
+  geometria interna `Geometry` + cadeia FAT + short names; marcadores `FS-LS-OK`, `FS-CAT-OK`.
 
-- [ ] **Step 1: Escrever `shared/mkdata.sh` + assert `scripts-assert/fs.assert.sh`**
+- [ ] **Step 1: `shared/mkdata.sh` + assert FIFO `scripts-assert/fs.assert.sh`** (harness FIFO:
+  espera `SHELL-OK` no log e só então digita — bytes precoces são comidos pelo OVMF).
 
-`shared/mkdata.sh`:
-```bash
-#!/usr/bin/env bash
-# cria data.img 32 MiB FAT32 com HELLO.TXT + README (mtools, sem root)
-set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-OUT="${1:-$ROOT/data.img}"
-printf 'HELLO FROM TUIOS-PRIME DATA DISK\r\nsecond line\r\n' > /tmp/HELLO.TXT
-printf 'tuios-prime fase1 data volume\r\n' > /tmp/DREADME
-dd if=/dev/zero of="$OUT" bs=1M count=32 status=none
-mkfs.fat -F 32 -n TUIOSDATA "$OUT" >/dev/null
-mcopy -i "$OUT" /tmp/HELLO.TXT ::/HELLO.TXT
-mcopy -i "$OUT" /tmp/DREADME ::/README
-echo "DATA-OK: $OUT"
-```
+- [ ] **Step 2: assert → PENDING** (sem driver FS).
 
-`scripts-assert/fs.assert.sh`:
-```bash
-#!/usr/bin/env bash
-set -uo pipefail
-{ sleep 12; printf 'ls\ncat HELLO.TXT\n'; sleep 13; } | timeout 30 qemu-system-x86_64 -M q35 -m 512M -display none -serial stdio \
-  -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \
-  -drive if=pflash,format=raw,file=/tmp/tuios-OVMF_VARS.fd \
-  -drive file=disk.img,format=raw,if=ide \
-  -drive file=data.img,format=raw,if=virtio > /tmp/f1-fs.log 2>&1 || true
-grep -a -q "FS-CAT-OK" /tmp/f1-fs.log && echo FS-ASSERT-OK || echo FS-ASSERT-PENDING
-```
-(Nota: input ANTES do boot é consumido pelo OVMF/Limine — comandos só após `sleep 12`; `read_line` ecoa.)
+- [ ] **Step 3: `kernel/src/fs.rs`** — BPB (sig 0x55AA + `"FAT32   "` em off 82),
+  `cluster_lba`, `fat_entry` (máscara 0x0FFFFFFF, EOC ≥ 0x0FFFFFF8), `cluster_chain`
+  (teto 4096), `read_dir` (pula 0x00-fim/0xE5/LFN 0x0F/label 0x08), short name
+  (trim + ponto), `read_file` por cadeia, `mount/ls/cat` com os marcadores do plano.
+  Somente 512 B/setor na Fase 1 (outro tamanho = degraded explícito).
 
-- [ ] **Step 2: Rodar assert → PENDING**
-
-Run: `bash shared/mkdata.sh && just -f shared/Justfile image && bash scripts-assert/fs.assert.sh`
-Expected: `FS-ASSERT-PENDING`.
-
-- [ ] **Step 3: Implementar fs.rs**
-
-```rust
-use fatfs::{DefaultTimeProvider, FileSystem, FsOptions, LossyOemCpConverter};
-use spin::Mutex;
-
-pub static MOUNTED: Mutex<bool> = Mutex::new(false);
-
-pub struct BlkFile {
-    pos: u64,
-}
-
-impl BlkFile {
-    fn do_rw(&mut self, buf: &mut [u8], write_src: Option<&[u8]>) -> Result<usize, &'static str> {
-        let mut guard = crate::blk::VIRTIO_BLK.lock();
-        let b = guard.as_mut().ok_or("nodev")?;
-        let mut done = 0;
-        let mut sector_buf = [0u8; 512];
-        while done < buf.len() {
-            let lba = (self.pos / 512) as u64;
-            let off = (self.pos % 512) as usize;
-            let n = core::cmp::min(512 - off, buf.len() - done);
-            if write_src.is_some() {
-                b.read_block(lba, &mut sector_buf)?;
-                sector_buf[off..off + n].copy_from_slice(&write_src.unwrap()[done..done + n]);
-                b.write_block(lba, &sector_buf)?;
-            } else {
-                b.read_block(lba, &mut sector_buf)?;
-                buf[done..done + n].copy_from_slice(&sector_buf[off..off + n]);
-            }
-            done += n;
-            self.pos += n as u64;
-        }
-        Ok(done)
-    }
-}
-
-impl fatfs::IoBase for BlkFile {
-    type Error = &'static str;
-}
-impl fatfs::Read for BlkFile {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
-        self.do_rw(buf, None)
-    }
-    fn seek(&mut self, pos: fatfs::SeekFrom) -> Result<u64, Self::Error> {
-        match pos {
-            fatfs::SeekFrom::Start(n) => self.pos = n,
-            fatfs::SeekFrom::Current(d) => self.pos = (self.pos as i64 + d) as u64,
-            fatfs::SeekFrom::End(_) => return Err("no-end"),
-        }
-        Ok(self.pos)
-    }
-}
-impl fatfs::Write for BlkFile {
-    // Fase 1 usa read (ls/cat); write existe p/ satisfazer o trait e sera exercitado na Fase 3 (logs).
-    fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
-        let owned = buf.to_vec();
-        let mut sink = alloc::vec![0u8; owned.len()];
-        self.do_rw(&mut sink, Some(&owned))
-    }
-    fn flush(&mut self) -> Result<(), Self::Error> {
-        Ok(())
-    }
-}
-```
-
-```rust
-pub fn with_fs<R>(f: impl FnOnce(&FileSystem<BlkFile, DefaultTimeProvider, LossyOemCpConverter>) -> R) -> Result<R, &'static str> {
-    if !*MOUNTED.lock() {
-        return Err("not mounted");
-    }
-    let fs = FileSystem::new(BlkFile { pos: 0 }, FsOptions::new()).map_err(|_| "mount fail")?;
-    Ok(f(&fs))
-}
-
-pub fn mount() {
-    match with_fs(|fs| fs.root_dir().open_file("HELLO.TXT").is_ok()) {
-        Ok(true) => {
-            *MOUNTED.lock() = true;
-            crate::println!("FS-OK");
-        }
-        _ => crate::println!("FS: no data disk (degraded)"),
-    }
-}
-
-pub fn cmd_ls() {
-    match with_fs(|fs| {
-        let root = fs.root_dir();
-        let mut n = 0;
-        for e in root.iter() {
-            if let Ok(e) = e {
-                crate::println!("  {}", e.file_name());
-                n += 1;
-            }
-        }
-        n
-    }) {
-        Ok(n) => crate::println!("FS-LS-OK files={}", n),
-        Err(e) => crate::println!("FS-LS-FAIL {}", e),
-    }
-}
-
-pub fn cmd_cat(name: &str) {
-    use alloc::string::String;
-    let name_s = String::from(name);
-    match with_fs(|fs| {
-        let mut f = fs.root_dir().open_file(&name_s).map_err(|_| "open")?;
-        let mut buf = alloc::vec![0u8; 256];
-        let n = f.read(&mut buf).map_err(|_| "read")?;
-        crate::println!("{}", core::str::from_utf8(&buf[..n]).unwrap_or("?bin?"));
-        Ok::<(), &'static str>(())
-    }) {
-        Ok(Ok(())) => crate::println!("FS-CAT-OK"),
-        Ok(Err(e)) => crate::println!("FS-CAT-FAIL {}", e),
-        Err(e) => crate::println!("FS-CAT-FAIL {}", e),
-    }
-}
-```
-
-`kernel/Cargo.toml` — adicionar: `fatfs = "0.3"`.
-`main.rs` após blk probe: `fs::mount();`. `shell.rs`: `ls` → `fs::cmd_ls()`, `cat X` → parse nome.
-`shared/Justfile` — adicionar recipe `qemu-fase1` (com data.img + net slirp):
-```
-qemu-fase1: image
-    ./shared/mkdata.sh {{root}}/data.img
-    cp /usr/share/OVMF/OVMF_VARS_4M.fd /tmp/tuios-OVMF_VARS.fd
-    timeout 30 qemu-system-x86_64 -M q35 -m 512M -display none -serial stdio -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd -drive if=pflash,format=raw,file=/tmp/tuios-OVMF_VARS.fd -drive file={{root}}/disk.img,format=raw,if=ide -drive file={{root}}/data.img,format=raw,if=virtio -netdev user,id=n0 -device virtio-net-pci,netdev=n0
-```
-
-- [ ] **Step 4: Rerodar assert → OK**
-
-Run: `just -f shared/Justfile image && bash scripts-assert/fs.assert.sh`
-Expected: `FS-ASSERT-OK` ( Conteúdo `HELLO FROM TUIOS-PRIME DATA DISK` + `FS-CAT-OK` no log).
+- [ ] **Step 4: rerodar → `FS-ASSERT-OK`** (`FS-OK`, `files=2`, conteúdo + `FS-CAT-OK`).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add kernel/src/fs.rs kernel/src/main.rs kernel/src/shell.rs kernel/Cargo.toml kernel/Cargo.lock shared/mkdata.sh shared/Justfile scripts-assert/fs.assert.sh
-git commit -m "[FEAT] — FAT32 mount + ls/cat sobre virtio-blk (Fase 1 T5)"
+git add kernel/src/fs.rs kernel/src/main.rs kernel/src/shell.rs kernel/Cargo.toml kernel/Cargo.lock shared/Justfile scripts-assert/fs.assert.sh
+git commit -m "[FEAT] — FAT32 proprio read-only + ls/cat (Fase 1 T5)"
 ```
+
 ---
 
 ### Task 6: VirtioNet + smoltcp (DHCP + ping + HTTP GET)
