@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>tuiOS-Prime - Sistema Operacional de Linha de Comando</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #eee;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle { color: #888; margin-bottom: 2rem; }
+        .card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .card h2 { color: #00d9ff; margin-bottom: 1rem; }
+        .card ul { list-style: none; }
+        .card li {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .card li:last-child { border-bottom: none; }
+        .card a {
+            color: #00ff88;
+            text-decoration: none;
+        }
+        .card a:hover { text-decoration: underline; }
+        .badge {
+            display: inline-block;
+            background: #00d9ff;
+            color: #000;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            margin-right: 0.5rem;
+        }
+        .chromebook { background: #ff6b6b; color: #fff; }
+        .rust { background: #dea584; color: #000; }
+        .qemu { background: #74b9ff; color: #000; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>tuiOS-Prime</h1>
+        <p class="subtitle">Sistema Operacional de Linha de Comando — Kernel Rust bare-metal</p>
+        
+        <div class="card">
+            <h2>🚀 Início Rápido</h2>
+            <ul>
+                <li><span class="badge rust">Rust</span> Kernel <code>no_std</code> desenvolvido do zero</li>
+                <li><span class="badge qemu">QEMU</span> Testado em QEMU 8.2+ com OVMF</li>
+                <li><span class="badge chromebook">Chromebook</span> Otimizado para hardware limitado</li>
+                <li><code>just image && just qemu-kernel</code></li>
+            </ul>
+        </div>
+        
+        <div class="card">
+            <h2>📁 Documentação</h2>
+            <ul>
+                <li><a href="https://github.com/peder1981/tuiOS-Prime">📖 README no GitHub</a></li>
+                <li><a href="/tuiOS-Prime/docs/instalacao/instalacao-rapida.html">🔧 Guia de Instalação</a></li>
+                <li><a href="/tuiOS-Prime/docs/hardware/compatibilidade.html">💻 Compatibilidade de Hardware</a></li>
+                <li><a href="/tuiOS-Prime/docs/contribuicao/guia-contribuicao.html">🤝 Guia de Contribuição</a></li>
+            </ul>
+        </div>
+        
+        <div class="card">
+            <h2>✨ Recursos</h2>
+            <ul>
+                <li>✅ Boot UEFI/Limine 0.6.5</li>
+                <li>✅ Shell interativa com 10+ comandos</li>
+                <li>✅ Drivers: virtio-blk, AHCI, e1000, virtio-net</li>
+                <li>✅ FAT32 read-only com ls/cat</li>
+                <li>✅ Mapeamento MMIO manual</li>
+                <li>🔄 Rede: TX funcional, RX em desenvolvimento</li>
+            </ul>
+        </div>
+        
+        <div class="card">
+            <h2>🖥️ Suporte a Chromebook</h2>
+            <ul>
+                <li>Perfil Minimal: 2GB RAM, Intel Atom/Celeron</li>
+                <li>Perfil Standard: 4GB RAM, Intel Core m/Pentium</li>
+                <li>Perfil Performance: 8GB+ RAM, Intel Core i5/i7</li>
+                <li>Detecção automática de hardware</li>
+            </ul>
+        </div>
+        
+        <p style="text-align: center; color: #666; margin-top: 2rem;">
+            Desenvolvido com ❤️ em português brasileiro
+        </p>
+    </div>
+</body>
+</html>

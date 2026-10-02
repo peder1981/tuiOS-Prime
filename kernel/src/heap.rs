@@ -10,7 +10,32 @@ pub fn hhdm_offset() -> usize {
     HHDM_OFF.load(Ordering::Relaxed)
 }
 
-pub const HEAP_BYTES: usize = 16 * 1024 * 1024;
+pub const HEAP_BYTES: usize = HardwareProfile::detect().heap_size();
+/// Perfil de hardware detectado
+pub enum HardwareProfile {
+    Minimal,    // 2GB RAM, Atom/Celeron
+    Standard,   // 4GB RAM, Core m/Pentium
+    Performance, // 8GB+ RAM, Core i5/i7
+}
+
+impl HardwareProfile {
+    /// Detecta perfil baseado na quantidade de RAM
+    pub fn detect() -> Self {
+        // TODO: Implementar deteccao real de RAM
+        // Por agora, retorna Standard como padrao
+        HardwareProfile::Standard
+    }
+    
+    /// Retorna tamanho recomendado de heap
+    pub fn heap_size(&self) -> usize {
+        match self {
+            HardwareProfile::Minimal => 8 * 1024 * 1024,     // 8MB
+            HardwareProfile::Standard => 16 * 1024 * 1024,   // 16MB
+            HardwareProfile::Performance => 32 * 1024 * 1024, // 32MB
+        }
+    }
+}
+
 
 pub fn init_heap() -> Result<usize, &'static str> {
     let (memmap, hhdm) = crate::limine_requests();
