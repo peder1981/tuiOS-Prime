@@ -1,21 +1,36 @@
 {
-  description = "tuiOS-Prime — dual-track Rust kernel + NixOS ISO";
+  description = "tuiOS-Prime — dual-track Rust kernel + NixOS ISO + AdvPP";
+  
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
     tuios.url = "github:peder1981/tuiOS";
   };
-  outputs = { self, nixpkgs, ... }:
-    let system = "x86_64-linux";
+  
+  outputs = { self, nixpkgs, tuios, ... }:
+    let
+      system = "x86_64-linux";
+      pkgs = nixpkgs.legacyPackages.${system};
     in {
-      devShells.${system}.default =
-        nixpkgs.legacyPackages.${system}.mkShell {
-          packages = with nixpkgs.legacyPackages.${system}; [
-            just qemu OVMF rustup
-          ];
-        };
-      nixosConfigurations.iso = nixpkgs.lib.nixosSystem {
+      # Dev shell
+      devShells.${system}.default = pkgs.mkShell {
+        buildInputs = with pkgs; [
+          just
+          qemu
+          ovmf
+          rustup
+          go
+        ];
+        
+        SHELL = "/bin/bash";
+      };
+      
+      # NixOS Configuration
+      nixosConfigurations.iso = pkgs.lib.nixosSystem {
         inherit system;
-        modules = [ ./nixos/iso.nix ];
+        modules = [
+          ./nixos/iso.nix
+          ./nixos/advpp
+        ];
       };
     };
 }

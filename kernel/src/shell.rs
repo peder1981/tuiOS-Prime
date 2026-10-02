@@ -1,5 +1,24 @@
 use crate::{print, println, serial};
 
+/// Comando advplc (stub para Fase 5)
+fn cmd_advplc() {
+    println!("AdvPP - Compilador AdvPL/TLPP");
+    println!("Usage: advplc <command> <file> [options]");
+    println!("");
+    println!("Commands:");
+    println!("  run <file>          Compile and run");
+    println!("  compile <file> [-o <out>]  Compile to bytecode");
+    println!("  exec <bytecode>     Execute bytecode");
+    println!("  check <file>        Validate syntax");
+    println!("  serve <file> [--port <n>]  Web mode");
+    println!("  build <file> [-o <out>] [--gui]  Standalone build");
+    println!("  debug <file>        DAP debug server");
+    println!("  ast <file>          Print AST");
+    println!("  bytecode <file>     Print bytecode");
+    println!("");
+    println!("Note: Full advplc support requires NixOS ISO (Fase 5)");
+}
+
 pub fn run() -> ! {
     println!("TUIOS-PRIME SHELL (fase1)");
     println!("SHELL-OK");
@@ -9,7 +28,7 @@ pub fn run() -> ! {
         let n = serial::read_line(&mut buf);
         let line: &[u8] = &buf[..n];
         if line == b"help" as &[u8] {
-            println!("cmds: help echo time pic pci blk ls cat net ping http");
+            println!("cmds: help echo time pic pci blk ls cat net ping http advplc");
         } else if line == b"echo" as &[u8] {
             println!("echo...");
         } else if line == b"time" as &[u8] {
@@ -42,6 +61,8 @@ pub fn run() -> ! {
             }
         } else if line == b"ping" as &[u8] {
             crate::net::cmd_ping();
+        } else if line == b"advplc" as &[u8] {
+            cmd_advplc();
         } else if line == b"http" as &[u8] {
             crate::net::cmd_http();
         } else if line == b"pci" as &[u8] {
