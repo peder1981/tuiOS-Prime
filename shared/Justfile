@@ -58,3 +58,20 @@ test-nonico:
 test-nodev:
     cp /usr/share/OVMF/OVMF_VARS_4M.fd /tmp/tuios-OVMF_VARS.fd 2>/dev/null || true
     bash scripts-assert/nodev.assert.sh
+
+# Executar todos os testes
+test-all:
+    @echo "Executando testes..."
+    @cp /usr/share/OVMF/OVMF_VARS_4M.fd /tmp/tuios-OVMF_VARS.fd 2>/dev/null || true
+    @bash scripts-assert/shell.assert.sh
+    @bash scripts-assert/time.assert.sh
+    @bash scripts-assert/pci.assert.sh
+    @bash scripts-assert/blk.assert.sh
+    @bash scripts-assert/fs.assert.sh
+    @bash scripts-assert/net.assert.sh
+    @bash scripts-assert/nonic.assert.sh
+    @bash scripts-assert/nodev.assert.sh
+    @echo ""
+    @echo "========================================"
+    @echo "   TODOS OS TESTES PASSARAM! ✅"
+    @echo "========================================"
