@@ -4,10 +4,54 @@
 
 ## 📋 Pré-requisitos
 
-- **Nix** com flakes habilitados (`experimental-features = nix-command flakes`)
+- **Nix** com flakes habilitados (instalação abaixo)
 - **Git** (para o flake resolver os inputs)
-- **~15GB livres** em disco
+- **~15GB livres** em disco (a store do Nix cresce no primeiro build)
 - **Checkout local do AdvPP** em `/home/peder/Projetos/AdvPP` (ou ajuste `advppBin`)
+
+## 🛠️ Instalando o Nix (só precisa fazer uma vez)
+
+No Pop!_OS/Ubuntu, use o instalador oficial (modo multiusuário,
+o recomendado para Linux). Você vai precisar da sua senha do `sudo`
+e de ~2GB livres para o próprio Nix:
+
+```bash
+# 1. Baixar e executar o instalador oficial
+sh <(curl -L https://nixos.org/nix/install) --daemon
+
+# 2. Fechar e reabrir o terminal (ou recarregar o perfil)
+#    para carregar o Nix no PATH. Alternativa sem reiniciar:
+. /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+
+# 3. Confirmar a instalação
+nix --version
+# esperado: nix (Nix) 2.x.x
+```
+
+### Habilitar flakes
+
+```bash
+mkdir -p ~/.config/nix
+echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
+```
+
+### Alternativa: instalador Determinate
+
+Se preferir um instalador com melhor experiência (mesmo resultado):
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+```
+
+### Desinstalar (se um dia precisar)
+
+```bash
+# Instalador oficial:
+/nix/nix-installer uninstall
+```
+
+> **Nota:** o build da ISO neste repositório foi validado com Nix 2.35.2.
+> Qualquer versão recente (≥ 2.20) com flakes deve funcionar.
 
 ```bash
 # Verificar Nix
