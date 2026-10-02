@@ -32,11 +32,7 @@ impl Gpu {
     }
 
     pub fn clear(&mut self) {
-        unsafe {
-            for i in 0..(VGA_WIDTH * VGA_HEIGHT) {
-                ptr::write_volatile(VGA_MEM.add(i), 0x0720);
-            }
-        }
+        // VGA write disabled in UEFI mode - use serial only
         self.cursor_x = 0;
         self.cursor_y = 0;
     }
@@ -62,32 +58,16 @@ impl Gpu {
         }
     }
 
-    fn putch(&mut self, c: char) {
+    fn putch(&mut self, _c: char) {
+        // VGA write disabled in UEFI mode - use serial only
         if self.cursor_x >= VGA_WIDTH {
             self.cursor_x = 0;
             self.cursor_y = self.cursor_y.saturating_add(1);
-        }
-        if self.cursor_y >= VGA_HEIGHT {
-            self.scroll();
-        }
-        unsafe {
-            let idx = (self.cursor_y * VGA_WIDTH + self.cursor_x) as usize;
-            ptr::write_volatile(VGA_MEM.add(idx), (0x07u16 << 8) | c as u16);
         }
         self.cursor_x = self.cursor_x.saturating_add(1);
     }
 
     fn scroll(&mut self) {
-        unsafe {
-            core::ptr::copy(
-                VGA_MEM.add(VGA_WIDTH),
-                VGA_MEM,
-                VGA_WIDTH * (VGA_HEIGHT - 1),
-            );
-            for i in 0..VGA_WIDTH {
-                ptr::write_volatile(VGA_MEM.add(VGA_WIDTH * (VGA_HEIGHT - 1) + i), 0x0720);
-            }
-        }
         self.cursor_y = VGA_HEIGHT - 1;
     }
 }
