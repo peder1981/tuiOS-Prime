@@ -1,9 +1,10 @@
 {
-  description = "tuiOS-Prime — dual-track Rust kernel + NixOS ISO + AdvPP";
+  description = "tuiOS-Prime — dual-track Rust kernel + NixOS ISO + AdvPP + tuiOS";
   
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
-    tuios.url = "github:peder1981/tuiOS";
+    # Input do tuiOS (fork local)
+    tuios.url = "path:/home/peder/Projetos/tuiOS";
   };
   
   outputs = { self, nixpkgs, tuios, ... }:
@@ -22,6 +23,14 @@
         ];
         
         SHELL = "/bin/bash";
+      };
+      
+      # Packages disponiveis
+      packages.${system} = {
+        # tuiOS terminal UI
+        tuios = tuios.packages.${system}.default;
+        # Kernel Rust (sera construido via just)
+        default = self.packages.${system}.tuios;
       };
       
       # NixOS Configuration

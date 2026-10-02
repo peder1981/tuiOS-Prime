@@ -1,4 +1,4 @@
-{ modulesPath, pkgs, ... }:
+{ modulesPath, pkgs, tuios, ... }:
 
 {
   imports = [
@@ -12,12 +12,13 @@
   # Autologin
   services.getty.autologinUser = "root";
   
-  # Session tuiOS
+  # Session tuiOS - inicia automaticamente no boot
   systemd.services.tuios-session = {
     description = "tuiOS fullscreen session";
     after = [ "getty@tty1.service" ];
     wantedBy = [ "multi-user.target" ];
     serviceConfig = {
+      # Executa tuios attach se daemon rodando, senao executa tuios direto
       ExecStart = "${pkgs.bash}/bin/bash -lc 'exec tuios attach || exec tuios'";
       StandardInput = "tty";
       TTYPath = "/dev/tty1";
@@ -28,7 +29,7 @@
   
   # Packages do sistema
   environment.systemPackages = with pkgs; [
-    # tuiOS
+    # tuiOS (terminal UI)
     tuios.packages.${system}.default
     
     # AdvPP (compilador)
@@ -57,10 +58,10 @@
   ];
   
   # Copiar fonte do AdvPP para o sistema
-  installFiles = [
+  copyFiles = [
     {
-      source = /home/peder/Projetos/AdvPP;
-      target = "/opt/advpp";
+      src = /home/peder/Projetos/AdvPP;
+      dst = "/opt/advpp";
     }
   ];
 }
