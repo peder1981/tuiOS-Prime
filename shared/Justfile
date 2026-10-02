@@ -25,3 +25,52 @@ qemu-fase1: image
     ./shared/mkdata.sh {{root}}/data.img
     cp /usr/share/OVMF/OVMF_VARS_4M.fd /tmp/tuios-OVMF_VARS.fd
     timeout 60 qemu-system-x86_64 -M q35 -m 512M -display none -serial stdio -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd -drive if=pflash,format=raw,file=/tmp/tuios-OVMF_VARS.fd -drive file={{root}}/disk.img,format=raw,if=ide -drive file={{root}}/data.img,format=raw,if=virtio -netdev user,id=n0 -device virtio-net-pci,netdev=n0
+
+# Testes de assert
+test-shell: image
+    bash {{root}}/scripts-assert/shell.assert.sh
+
+test-time: image
+    bash {{root}}/scripts-assert/time.assert.sh
+
+test-pci: image
+    bash {{root}}/scripts-assert/pci.assert.sh
+
+test-blk: image
+    bash {{root}}/scripts-assert/blk.assert.sh
+
+test-fs: image
+    bash {{root}}/scripts-assert/fs.assert.sh
+
+test-net: image
+    bash {{root}}/scripts-assert/net.assert.sh
+
+test-nonico: image
+    bash {{root}}/scripts-assert/nonic.assert.sh
+
+test-nodev: image
+    bash {{root}}/scripts-assert/nodev.assert.sh
+
+# Rodar todos os testes
+test-all: test-shell test-time test-pci test-blk test-fs test-net test-nonico test-nodev
+    echo ""
+    echo "========================================"
+    echo "   TODOS OS TESTES PASSARAM! ✅"
+    echo "========================================"
+
+# Executar todos os testes
+test-all:
+    @echo "Executando testes..."
+    @bash scripts-assert/shell.assert.sh
+    @bash scripts-assert/time.assert.sh
+    @bash scripts-assert/pci.assert.sh
+    @bash scripts-assert/blk.assert.sh
+    @bash scripts-assert/fs.assert.sh
+    @bash scripts-assert/net.assert.sh
+    @bash scripts-assert/nonic.assert.sh
+    @bash scripts-assert/nodev.assert.sh
+    @echo ""
+    @echo "========================================"
+    @echo "   TODOS OS TESTES PASSARAM! ✅"
+    @echo "========================================"
+

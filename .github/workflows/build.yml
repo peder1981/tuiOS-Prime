@@ -8,17 +8,25 @@ on:
 
 jobs:
   build:
+    name: Build e Testes
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout
+      uses: actions/checkout@v4
     
-    - name: Instalar dependências
+    - name: Instalar dependências do sistema
       run: |
         sudo apt update
-        sudo apt install -y qemu-system-x86 ovmf mtools dosfstools gdisk
+        sudo apt install -y \
+          qemu-system-x86 \
+          ovmf \
+          mtools \
+          dosfstools \
+          gdisk \
+          just
     
-    - name: Configurar Rust
+    - name: Configurar Rust nightly
       uses: dtolnay/rust-toolchain@nightly
       with:
         targets: x86_64-unknown-none
@@ -29,9 +37,8 @@ jobs:
         export RUSTC_BOOTSTRAP=1
         export RUSTFLAGS="-C link-arg=-static -C link-arg=-no-pie -C link-arg=--image-base -C link-arg=0xffffffff80000000"
         cargo build --target x86_64-unknown-none
-    
-    - name: Build da imagem
-      run: just image
+      env:
+        RUST_BACKTRACE: 1
     
     - name: Executar testes
       run: just test-all
