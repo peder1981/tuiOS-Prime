@@ -42,7 +42,7 @@
       # Configuração da ISO NixOS
       nixosConfigurations.iso = nixpkgs.lib.nixosSystem {
         inherit system;
-        specialArgs = { inherit tuios advplc; };
+        specialArgs = { inherit tuios advplc; nixpkgsPath = nixpkgs.outPath; };
         modules = [
           ./nixos/iso.nix
         ];
