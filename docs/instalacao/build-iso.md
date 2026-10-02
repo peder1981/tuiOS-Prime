@@ -87,6 +87,31 @@ rebuilds incrementais levam minutos.
 
 **Saída:** `result/iso/nixos-*.iso` (~1,2GB).
 
+### Se o daemon não aceitar conexão (`Permission denied` em daemon-socket)
+
+Algumas instalações (ex.: `nix-bin` do apt sem o daemon devidamente
+exposto ao seu usuário) retornam:
+
+```
+error: getting status of /nix/var/nix/daemon-socket/socket: Permission denied
+```
+
+Nesse caso, construa em uma store local (sem daemon, tudo rodando como
+o seu usuário):
+
+```bash
+nix --store /tmp/nix-local build --impure \
+    .#nixosConfigurations.iso.config.system.build.isoImage
+
+# ISO em:
+# /tmp/nix-local/nix/store/*-nixos-*.iso/iso/nixos-*.iso
+```
+
+> Esta foi exatamente a forma usada para gerar a ISO validada desta
+> máquina (`nix 2.18.1`, store em `/tmp/nix-official`, 6,4GB de store,
+> ISO final em `/tmp/tuios-prime-iso-oficial/`). O resultado é
+> **idêntico** ao do daemon — mesmo store path, mesmo hash.
+
 ## ✅ Validar a ISO
 
 ### 1. Verificar conteúdo
