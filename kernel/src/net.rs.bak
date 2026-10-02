@@ -1,9 +1,8 @@
-//! Rede Fase 2: VirtioNet + e1000 + DHCP + ICMP + HTTP
+//! Rede Fase 1: VirtioNet + e1000 (polling) + smoltcp.
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use smoltcp::iface::{Config, Interface, SocketSet, SocketStorage};
 use smoltcp::phy::{Device, DeviceCapabilities, Medium, RxToken, TxToken};
-use smoltcp::socket::dhcpv4::{Socket as DhcpSocket, Event as DhcpEvent};
 use smoltcp::socket::icmp::{
     Endpoint as IcmpEndpoint, PacketBuffer as IcmpBuf, PacketMetadata as IcmpMeta,
     Socket as IcmpSocket,
@@ -19,19 +18,19 @@ pub static STACK: Mutex<Option<NetStack>> = Mutex::new(None);
 const RX_BUFS: usize = 12;
 const RX_LEN: usize = 2048;
 
-// ========== VIRTIO-NET ==========
+// ---------- VirtioNet ----------
 
-#[derive(Clone)]
 pub struct VirtioNet {
     io: u16,
     mac: [u8; 6],
-    rx: VirtQueue,
-    tx: VirtQueue,
+    rx: crate::virtio::VirtQueue,
+    tx: crate::virtio::VirtQueue,
     rx_bufs: Vec<Vec<u8>>,
 }
 
 impl VirtioNet {
     pub fn probe(dev: &crate::pci::PciDev) -> Result<Self, &'static str> {
+        use crate::virtio::{ack_features, finish_ok, inb_pub, init_legacy, VirtQueue, DESC_F_WRITE};
         let r = init_legacy(dev)?;
         ack_features(r.io, 1 << 5); // VIRTIO_NET_F_MAC
         let mut mac = [0u8; 6];
@@ -62,17 +61,24 @@ impl VirtioNet {
         self.rx.notify(self.io, 0);
     }
 
-    pub fn recv_pkt(&mut self) -> Option<Vec<u8>> {
-        // Simplificado: retorna None para Fase 2 (polling serah implementado depois)
-        None
+    fn recv_pkt(&mut self) -> Option<Vec<u8>> {
+        let (id, len) = self.rx.pop_used()?;
+        self.rx.free_chain(id, 1);
+        let mut buf = self.rx_bufs.pop()?;
+        buf.truncate(len as usize);
+        self.post_rx();
+        Some(buf)
     }
 
-    pub fn xmit(&mut self, pkt: &[u8]) {
-        self.tx.add_chain(&[(VirtQueue::phys(pkt.as_ptr()), pkt.len() as u32, 0)]);
+    fn xmit(&mut self, pkt: &[u8]) {
+        let hdr: &'static mut [u8] = alloc::boxed::Box::leak(alloc::vec![0u8; 10].into_boxed_slice());
+        let ph = VirtQueue::phys(hdr.as_ptr());
+        let p = VirtQueue::phys(pkt.as_ptr());
+        self.tx.add_chain(&[(ph, 10, 0), (p, pkt.len() as u32, 0)]);
         self.tx.notify(self.io, 1);
         for _ in 0..200_000 {
-            if let Some((id, _)) = self.tx.pop_used() {
-                self.tx.free_chain(id, 1);
+            if let Some((hid, _)) = self.tx.pop_used() {
+                self.tx.free_chain(hid, 2);
                 break;
             }
             core::hint::spin_loop();
@@ -80,7 +86,7 @@ impl VirtioNet {
     }
 }
 
-// ========== E1000 ==========
+// ---------- E1000 (Intel 82540EM, polling) ----------
 
 #[repr(C)]
 #[derive(Clone, Copy, Default)]
@@ -159,8 +165,10 @@ impl E1000 {
         if is_io {
             return Err("e1000 bar0 not MMIO");
         }
+        // MMIO via HHDM mapping
         let hhdm_off: u64 = 0xffff_8000_0000_0000;
         let mmio = (addr.wrapping_add(hhdm_off)) as *mut u32;
+        // MAC via RAL0/RAH0 (QEMU pré-programa)
         let ral = mm_r(mmio, E1000_RAL0);
         let rah = mm_r(mmio, E1000_RAH0);
         let mac = [
@@ -171,10 +179,13 @@ impl E1000 {
         if mac == [0, 0, 0, 0, 0, 0] || mac[0] & 1 == 1 {
             return Err("e1000 no mac");
         }
-        mm_w(mmio, 0x00D0, 0);
+        // Disable interrupts (polling mode)
+        mm_w(mmio, 0x00D0, 0); // IMS
+        // Clear multicast table
         for i in 0..128u32 {
             mm_w(mmio, E1000_MTA_OFF + i * 4, 0);
         }
+        // RX ring 32 x 2048
         let mut rx = alloc::vec![RxDesc::default(); 32];
         let mut rx_bufs = Vec::new();
         for d in rx.iter_mut() {
@@ -190,6 +201,7 @@ impl E1000 {
         mm_w(mmio, E1000_RDH, 0);
         mm_w(mmio, E1000_RDT, 0);
         mm_w(mmio, E1000_RCTL, E1000_RCTL_EN | E1000_RCTL_BAM);
+        // TX ring 32
         let mut tx = alloc::vec![TxDesc::default(); 32];
         let txp = (tx.as_ptr() as u64).wrapping_sub(hhdm_off);
         mm_w(mmio, E1000_TDBAL, txp as u32);
@@ -198,7 +210,7 @@ impl E1000 {
         mm_w(mmio, E1000_TDH, 0);
         mm_w(mmio, E1000_TDT, 0);
         mm_w(mmio, E1000_TCTL, E1000_TCTL_EN | E1000_TCTL_PSP);
-        Ok(E1000 {
+Ok(E1000 {
             mmio, rx, tx, rx_bufs, rtail: 0, ttail: 0, mac,
         })
     }
@@ -210,6 +222,7 @@ impl E1000 {
         }
         let n = d.length as usize;
         let mut pkt = alloc::vec![0u8; n];
+        // Read from the RX buffer via MMIO offset
         let buf_ptr = self.rx_bufs[self.rtail].as_ptr();
         let src = (buf_ptr as u64).wrapping_sub(crate::heap::hhdm_offset() as u64) + crate::heap::hhdm_offset() as u64;
         unsafe { core::ptr::copy_nonoverlapping(src as *const u8, pkt.as_mut_ptr(), n); }
@@ -240,11 +253,10 @@ impl E1000 {
     }
 }
 
-// ========== QUEUE HANDLES ==========
+// ---------- Tokens ----------
 
-#[derive(Clone)]
 pub struct QueueHandle {
-    pub inner: Arc<Mutex<QueueInner>>,
+    inner: Arc<Mutex<QueueInner>>,
 }
 
 pub struct QueueInner {
@@ -336,15 +348,13 @@ impl Device for NetDev {
     }
 }
 
-// ========== NET STACK ==========
-
 pub struct NetStack {
-    pub dev: NetDev,
-    pub iface: Interface,
-    pub sockets: SocketSet<'static>,
-    pub ip: Option<Ipv4Address>,
-    pub gw: Option<Ipv4Address>,
-    pub mac: [u8; 6],
+    dev: NetDev,
+    iface: Interface,
+    sockets: SocketSet<'static>,
+    ip: Option<Ipv4Address>,
+    gw: Option<Ipv4Address>,
+    mac: [u8; 6],
 }
 
 impl NetStack {
@@ -354,13 +364,11 @@ impl NetStack {
             NetDev::E1000(_) => "e1000",
         }
     }
-
     pub fn ip_str(&self) -> Ipv4Address {
-        self.ip.unwrap_or(Ipv4Address::new(0, 0, 0, 0))
+        self.ip.unwrap_or(Ipv4Address::UNSPECIFIED)
     }
-
     pub fn gw_str(&self) -> Ipv4Address {
-        self.gw.unwrap_or(Ipv4Address::new(0, 0, 0, 0))
+        self.gw.unwrap_or(Ipv4Address::UNSPECIFIED)
     }
 }
 
@@ -368,10 +376,36 @@ pub fn with_stack<R>(f: impl FnOnce(&mut Interface, &mut NetDev, &mut SocketSet<
     STACK.lock().as_mut().map(|s| f(&mut s.iface, &mut s.dev, &mut s.sockets))
 }
 
-// ========== PROBE ==========
+fn checksum(data: &[u8]) -> u16 {
+    let mut sum: u32 = 0;
+    let mut it = data.chunks_exact(2);
+    for w in &mut it {
+        sum += u16::from_be_bytes([w[0], w[1]]) as u32;
+    }
+    if let Some(&b) = it.remainder().first() {
+        sum += (b as u32) << 8;
+    }
+    while sum >> 16 != 0 {
+        sum = (sum & 0xFFFF) + (sum >> 16);
+    }
+    !(sum as u16)
+}
+
+fn echo_request(ident: u16, seq: u16, payload: &[u8]) -> Vec<u8> {
+    let mut pkt = alloc::vec![0u8; 8 + payload.len()];
+    pkt[0] = 8;
+    pkt[1] = 0;
+    pkt[4..6].copy_from_slice(&ident.to_be_bytes());
+    pkt[6..8].copy_from_slice(&seq.to_be_bytes());
+    pkt[8..].copy_from_slice(payload);
+    let c = checksum(&pkt);
+    pkt[2..4].copy_from_slice(&c.to_be_bytes());
+    pkt
+}
 
 pub fn probe_boot() {
     let devs = crate::pci::enumerate();
+    // Try virtio first, then e1000
     let found = devs.iter()
         .find(|d| d.vendor == 0x1AF4 && d.device == 0x1000)
         .map(|d| (*d, "virtio"))
@@ -422,42 +456,19 @@ pub fn probe_boot() {
     let eth = EthernetAddress(mac);
     let mut config = Config::new(HardwareAddress::Ethernet(eth));
     config.random_seed = 0xA53A_5AA5;
-    let storage: &'static mut [SocketStorage<'static>; 8] =
-        alloc::boxed::Box::leak(alloc::boxed::Box::new([SocketStorage::EMPTY; 8]));
+    let storage: &'static mut [SocketStorage<'static>; 4] =
+        alloc::boxed::Box::leak(alloc::boxed::Box::new([SocketStorage::EMPTY; 4]));
     let mut iface = Interface::new(config, &mut dev.clone(), crate::time::smol_instant::now());
-    
-    // No static IP - will use DHCP
     iface.update_ip_addrs(|a| {
         a.clear();
+        let _ = a.push(IpCidr::new(IpAddress::v4(0, 0, 0, 0), 0));
     });
-    
     let mut sockets = SocketSet::new(&mut storage[..]);
-    
-    // Add DHCP socket
-    let dhcp_sock = DhcpSocket::new();
-    let _dhcp_handle = sockets.add(dhcp_sock);
-    
-    *STACK.lock() = Some(NetStack { 
-        dev, 
-        iface, 
-        sockets, 
-        ip: None, 
-        gw: None, 
-        mac,
-    });
-    
-    crate::println!("NET-INIT mac={:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
-        mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    
-    // Run DHCP
-    run_dhcp();
-}
+    *STACK.lock() = Some(NetStack { dev, iface, sockets, ip: None, gw: None, mac });
 
-fn run_dhcp() {
-    // DHCP simplificado - usa IP estatico como fallback
+    // Static IP (QEMU user-mode)
     let static_ip = Ipv4Address::new(10, 0, 2, 15);
     let static_gw = Ipv4Address::new(10, 0, 2, 2);
-    
     with_stack(|iface, _, _| {
         iface.update_ip_addrs(|a| {
             a.clear();
@@ -467,54 +478,18 @@ fn run_dhcp() {
     });
     STACK.lock().as_mut().unwrap().ip = Some(static_ip);
     STACK.lock().as_mut().unwrap().gw = Some(static_gw);
-    
-    crate::println!("NET-STATIC ip={} gw={}", static_ip, static_gw);
-}
-
-// ========== PING ==========
-
-pub fn echo_request(ident: u16, seq: u16, payload: &[u8]) -> Vec<u8> {
-    let mut pkt = Vec::new();
-    pkt.push(8); // type: echo request
-    pkt.push(0); // code
-    let checksum = checksum_calc(&pkt[2..]);
-    pkt.push((checksum >> 8) as u8);
-    pkt.push((checksum & 0xFF) as u8);
-    pkt.push((ident >> 8) as u8);
-    pkt.push((ident & 0xFF) as u8);
-    pkt.push((seq >> 8) as u8);
-    pkt.push((seq & 0xFF) as u8);
-    pkt.extend_from_slice(payload);
-    let cksum = checksum_calc(&pkt[2..]);
-    pkt[2] = (cksum >> 8) as u8;
-    pkt[3] = (cksum & 0xFF) as u8;
-    pkt
-}
-
-fn checksum_calc(data: &[u8]) -> u16 {
-    let mut sum = 0u32;
-    for chunk in data.chunks(2) {
-        if chunk.len() == 2 {
-            sum += u16::from_be_bytes([chunk[0], chunk[1]]) as u32;
-        } else {
-            sum += (chunk[0] as u32) << 8;
-        }
-    }
-    while (sum >> 16) != 0 {
-        sum = (sum & 0xFFFF) + (sum >> 16);
-    }
-    !sum as u16
+    crate::println!(
+        "NET-STATIC ip={} gw={} mac={:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+        static_ip, static_gw,
+        mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]
+    );
 }
 
 pub fn cmd_ping() {
-    let target = match STACK.lock().as_ref().and_then(|s| s.gw) {
+    let gw = match STACK.lock().as_ref().and_then(|s| s.gw) {
         Some(g) => g,
-        None => {
-            crate::println!("NET-PING-NOGW");
-            return;
-        }
+        None => { crate::println!("NET-PING-NOGW"); return; }
     };
-    
     let sock = IcmpSocket::new(
         IcmpBuf::new([IcmpMeta::EMPTY; 4], alloc::vec![0u8; 256]),
         IcmpBuf::new([IcmpMeta::EMPTY; 4], alloc::vec![0u8; 256]),
@@ -529,51 +504,28 @@ pub fn cmd_ping() {
     let req = echo_request(0xBEEF, 1, b"tuios-prime");
     let t0 = crate::time::millis();
     let mut ok = false;
-    let mut sends = 0u32;
-    
-    while crate::time::millis() - t0 < 3000 {
+    while crate::time::millis() - t0 < 5000 {
         with_stack(|iface, dev, socks| {
             iface.poll(crate::time::smol_instant::now(), dev, socks);
-            
             let s = socks.get_mut::<IcmpSocket>(h);
-            if s.can_send() && sends == 0 {
-                match s.send_slice(&req, IpAddress::Ipv4(target)) {
-                    Ok(_) => {
-                        sends += 1;
-                        crate::println!("PING: sent to {}", target);
-                    }
-                    Err(e) => {
-                        crate::println!("PING: send failed {:?}", e);
-                    }
-                }
+            if s.can_send() {
+                let _ = s.send_slice(&req, IpAddress::Ipv4(gw));
             }
-            
             let mut rbuf = [0u8; 128];
-            match s.recv_slice(&mut rbuf) {
-                Ok((n, _)) => {
-                    crate::println!("PING: recv {} bytes", n);
-                    if n >= 8 && rbuf[0] == 0 && u16::from_be_bytes([rbuf[4], rbuf[5]]) == 0xBEEF {
-                        ok = true;
-                        crate::println!("PING: valid reply!");
-                    }
+            if let Ok((n, _)) = s.recv_slice(&mut rbuf) {
+                if n >= 8 && rbuf[0] == 0 && u16::from_be_bytes([rbuf[4], rbuf[5]]) == 0xBEEF {
+                    ok = true;
                 }
-                Err(_) => {}
             }
         });
-        
         if ok { break; }
-        sends += 1;
-        core::hint::spin_loop();
     }
-    
     if ok {
-        crate::println!("NET-PING-OK target={}", target);
+        crate::println!("NET-PING-OK gw={}", gw);
     } else {
-        crate::println!("NET-PING-TIMEOUT target={} sends={}", target, sends);
+        crate::println!("NET-PING-TIMEOUT");
     }
 }
-
-// ========== HTTP ==========
 
 pub fn cmd_http() {
     let srv = Ipv4Address::new(10, 0, 2, 2);
@@ -590,15 +542,13 @@ pub fn cmd_http() {
     let mut body = alloc::vec![0u8; 0];
     let mut sent = false;
     let mut ok = false;
-    
-    while crate::time::millis() - t0 < 5000 {
+    while crate::time::millis() - t0 < 8000 {
         with_stack(|iface, dev, socks| {
             iface.poll(crate::time::smol_instant::now(), dev, socks);
             let s = socks.get_mut::<TcpSocket>(h);
             if s.can_send() && !sent {
                 if s.send_slice(b"GET /hello.txt HTTP/1.0\r\nHost: x\r\n\r\n").is_ok() {
                     sent = true;
-                    crate::println!("HTTP: request sent");
                 }
             }
             if s.can_recv() {
@@ -612,11 +562,9 @@ pub fn cmd_http() {
             }
         });
         if ok { break; }
-        core::hint::spin_loop();
     }
-    
     let text = core::str::from_utf8(&body).unwrap_or("");
-    if text.contains("200") && text.contains("HELLO") {
+    if text.contains("200") && text.contains("HTTP HELLO FROM HOST") {
         crate::println!("HTTP-GET-OK len={}", body.len());
     } else {
         crate::println!("HTTP-GET-FAIL len={}", body.len());

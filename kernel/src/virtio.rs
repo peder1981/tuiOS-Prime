@@ -90,6 +90,21 @@ pub struct VirtQueue {
     pub last_used: u16,
 }
 
+impl Clone for VirtQueue {
+    fn clone(&self) -> Self {
+        // Nota: isso compartilha os ponteiros - uso apenas em contexto single-thread
+        Self {
+            size: self.size,
+            desc: self.desc,
+            avail: self.avail,
+            used: self.used,
+            free_head: self.free_head,
+            avail_idx: self.avail_idx,
+            last_used: self.last_used,
+        }
+    }
+}
+
 impl VirtQueue {
     pub fn new(size: u16) -> Self {
         // Layout LEGADO contíguo: desc[16*size] + avail[6+2*size] + used(4K-alinhado)[8+8*size].
