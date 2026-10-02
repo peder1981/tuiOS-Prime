@@ -18,6 +18,7 @@ mod shell;
 mod ahci;
 mod gpu;
 mod audio;
+mod nvme;
 
 use core::panic::PanicInfo;
 use limine::{request::{HhdmRequest, MemmapRequest}, RequestsEndMarker, RequestsStartMarker};
@@ -66,6 +67,7 @@ pub extern "C" fn _start() -> ! {
     unsafe { arch::map_mmio_regions(hhdm) };
     gpu::init();
     audio::init();
+    nvme::init();
     arch::init();
     let devs = pci::enumerate();
     println!("PCI-OK n={}", devs.len());
