@@ -18,7 +18,7 @@ mod shell;
 mod ahci;
 
 use core::panic::PanicInfo;
-use limine::request::{HhdmRequest, MemoryMapRequest, RequestsEndMarker, RequestsStartMarker};
+use limine::{request::{HhdmRequest, MemmapRequest}, RequestsEndMarker, RequestsStartMarker};
 use limine::BaseRevision;
 
 // Bloco único repr(C): ordem garantida start < hhdm < memmap < base < end,
@@ -27,7 +27,7 @@ use limine::BaseRevision;
 struct RequestBlock {
     start: RequestsStartMarker,
     hhdm: HhdmRequest,
-    memmap: MemoryMapRequest,
+    memmap: MemmapRequest,
     base: BaseRevision,
     end: RequestsEndMarker,
 }
@@ -37,17 +37,17 @@ struct RequestBlock {
 static REQUEST_BLOCK: RequestBlock = RequestBlock {
     start: RequestsStartMarker::new(),
     hhdm: HhdmRequest::new(),
-    memmap: MemoryMapRequest::new(),
+    memmap: MemmapRequest::new(),
     base: BaseRevision::new(),
     end: RequestsEndMarker::new(),
 };
 
 pub fn limine_requests() -> (
-    Option<&'static limine::response::MemoryMapResponse>,
+    Option<&'static limine::request::MemmapResponse>,
     Option<u64>,
 ) {
-    let memmap = REQUEST_BLOCK.memmap.get_response();
-    let hhdm = REQUEST_BLOCK.hhdm.get_response().map(|r| r.offset());
+    let memmap = REQUEST_BLOCK.memmap.response();
+    let hhdm = REQUEST_BLOCK.hhdm.response().map(|r| r.offset);
     (memmap, hhdm)
 }
 
@@ -59,6 +59,9 @@ pub extern "C" fn _start() -> ! {
         Ok(_) => println!("HEAP-OK"),
         Err(e) => println!("HEAP-FAIL {}", e),
     }
+    let (_memmap, hhdm) = limine_requests();
+    let hhdm = hhdm.unwrap_or(0xffff800000000000) as u64;
+    unsafe { arch::map_mmio_regions(hhdm) };
     arch::init();
     let devs = pci::enumerate();
     println!("PCI-OK n={}", devs.len());
@@ -69,8 +72,8 @@ pub extern "C" fn _start() -> ! {
     blk::probe_boot();
     fs::mount();
     net::probe_boot();
-    // ahci::probe_boot(); // TODO: MMIO mapping required
-    println!("DRIVERS: virtio-blk probed");
+    ahci::probe_boot();
+    println!("DRIVERS: all probed");
     shell::run();
 }
 

@@ -210,9 +210,9 @@ impl E1000 {
         mm_w(mmio, E1000_TDH, 0);
         mm_w(mmio, E1000_TDT, 0);
         mm_w(mmio, E1000_TCTL, E1000_TCTL_EN | E1000_TCTL_PSP);
-        // MMIO not mapped — mark as unsupported for now
-        crate::println!("E1000: MMIO not mapped (degraded)");
-        Err("e1000 mmio not mapped")
+        Ok(E1000 {
+            mmio, rx, tx, rx_bufs, rtail: 0, ttail: 0, mac,
+        })
     }
 
     pub fn recv_pkt(&mut self) -> Option<Vec<u8>> {
@@ -436,8 +436,19 @@ pub fn probe_boot() {
             }))
         }
         "e1000" => {
-            crate::println!("NET: e1000 not supported yet (MMIO mapping required) (degraded)");
-            return;
+            match E1000::probe(&d) {
+                Ok(e) => {
+                    crate::println!("E1000-PROBED mac={:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+                        e.mac[0], e.mac[1], e.mac[2], e.mac[3], e.mac[4], e.mac[5]);
+                    (e.mac, NetDev::E1000(QueueHandle {
+                        inner: Arc::new(Mutex::new(QueueInner { virtio: None, e1000: Some(e) })),
+                    }))
+                }
+                Err(e) => {
+                    crate::println!("NET: e1000 probe failed {} (degraded)", e);
+                    return;
+                }
+            }
         }
         _ => unreachable!(),
     };

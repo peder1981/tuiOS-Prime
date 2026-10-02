@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-limine = "0.5"
+limine = "0.6.5"
 x86_64 = { version = "0.15", features = ["instructions"] }
 uart_16550 = "0.3"
 spinning_top = "0.3"

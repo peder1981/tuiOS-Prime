@@ -5,6 +5,7 @@ use x86_64::instructions::port::Port;
 use x86_64::instructions::segmentation::{Segment, CS, DS, SS};
 use x86_64::structures::gdt::{Descriptor, GlobalDescriptorTable, SegmentSelector};
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
+use x86_64::structures::paging::OffsetPageTable;
 
 pub const PIC1: u8 = 0x20;
 pub const PIC2: u8 = 0x28;
@@ -222,4 +223,72 @@ pub fn cmd_dump_idt() {
     crate::println!("IDT[32] decoded: offset={:#018x} selector={:#06x} type={:#04x} dpl_p={:#04x}",
         full_offset, selector_val, typ, dplp);
     crate::println!("IDT[32] expected=0xffffffff8002c7b0 (timer_tick)");
+}
+
+/// Mapeia MMIO de dispositivos PCI acima de 1GB usando RecursivePageTable.
+/// Limine já tem identity mapping para < 1GB. Para > 1GB, precisamos adicionar
+/// entradas nas page tables existentes.
+pub unsafe fn map_mmio_regions(hhdm_offset: u64) {
+    use x86_64::structures::paging::{
+        OffsetPageTable, Page, Size2MiB, Size4KiB, PageSize, PageTableFlags as Flags,
+        PhysFrame, mapper::Mapper,
+    };
+    use x86_64::{PhysAddr, VirtAddr};
+    use x86_64::registers::control::Cr3;
+    
+    // PML4 físico
+    let pml4_phys = Cr3::read().0.start_address().as_u64();
+    // Como Limine faz identity mapping para < 1GB, PML4 está em phys < 1GB
+    // Seu virtual = hhdm_offset + phys_addr (pois identity + hhdm_offset)
+    let pml4_virt = hhdm_offset + pml4_phys;
+    
+    // Criar mapper com phys_offset = hhdm_offset
+    // Isso significa: phys_addr X -> virtual addr (hhdm_offset + X)
+    let pml4_ptr = pml4_virt as *mut x86_64::structures::paging::PageTable;
+    let mut mapper = OffsetPageTable::new(
+        &mut *pml4_ptr,
+        VirtAddr::new(hhdm_offset),
+    );
+    
+    // Frame allocator que reutiliza frames já mapeados (identity)
+    // Não precisa alocar novos frames porque os frames dos dispositivos
+    // já existem na memória física e podem ser reutilizados
+    struct IdentityAllocator;
+    unsafe impl<S: PageSize> x86_64::structures::paging::FrameAllocator<S> for IdentityAllocator {
+        fn allocate_frame(&mut self) -> Option<PhysFrame<S>> { None }
+    }
+    
+    // Mapear 2MiB pages para os BARs dos dispositivos
+    // AHCI: phys 0x80000000, size 256MiB -> 128 pages
+    // e1000: phys 0x81080000, size 64KiB -> 1 page (align to 2MiB)
+    // virtio: phys 0x81081000, size 4KiB -> 1 page (align to 2MiB)
+    
+    let flags = Flags::PRESENT | Flags::WRITABLE | Flags::NO_EXECUTE;
+    let mut alloc = IdentityAllocator;
+    
+    // AHCI BAR: 0x80000000 - 0x80FFFFFF (256MB)
+    for i in 0..128u64 {
+        let phys = 0x80000000u64 + i * 0x200000;
+        let page = Page::<Size2MiB>::containing_address(VirtAddr::new(hhdm_offset + phys));
+        let frame = PhysFrame::<Size2MiB>::containing_address(PhysAddr::new(phys));
+        let _ = mapper.map_to(page, frame, flags, &mut alloc);
+    }
+    
+    // e1000 BAR: 0x81080000 - 0x8108FFFF (64KB)
+    {
+        let phys = 0x81080000u64;
+        let page = Page::<Size2MiB>::containing_address(VirtAddr::new(hhdm_offset + phys));
+        let frame = PhysFrame::<Size2MiB>::containing_address(PhysAddr::new(phys));
+        let _ = mapper.map_to(page, frame, flags, &mut alloc);
+    }
+    
+    // virtio-mmio BAR: 0x81081000 - 0x81081FFF (4KB)
+    {
+        let phys = 0x81081000u64;
+        let page = Page::<Size2MiB>::containing_address(VirtAddr::new(hhdm_offset + phys));
+        let frame = PhysFrame::<Size2MiB>::containing_address(PhysAddr::new(phys));
+        let _ = mapper.map_to(page, frame, flags, &mut alloc);
+    }
+    
+    crate::println!("MMIO-MAPPED phys=0x80000000..0x81082000 (via HHDM+0x{:x})", hhdm_offset);
 }

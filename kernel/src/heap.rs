@@ -19,7 +19,7 @@ pub fn init_heap() -> Result<usize, &'static str> {
     crate::println!("HHDM-OFF={:#x}", hhdm);
     HHDM_OFF.store(hhdm, Ordering::Relaxed);
     for e in memmap.entries() {
-        if e.entry_type == limine::memory_map::EntryType::USABLE && (e.length as usize) >= HEAP_BYTES {
+        if e.type_ == limine::memmap::MEMMAP_USABLE && (e.length as usize) >= HEAP_BYTES {
             let base = e.base as usize + hhdm;
             unsafe { HEAP.lock().init(base as *mut u8, HEAP_BYTES) };
             return Ok(base);
