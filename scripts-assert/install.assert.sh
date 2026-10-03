@@ -105,7 +105,8 @@ esperar "T2-FIM" 60
 sleep 1
 limpar_log | grep -q "^active$" || { echo "FALHA: tuios-session inativo"; limpar_log | tail -30; exit 1; }
 limpar_log | grep -q "^tuios-prime$" || { echo "FALHA: hostname errado"; exit 1; }
-limpar_log | grep -q "^advplc dev$" || { echo "FALHA: advplc ausente"; exit 1; }
+# aceita "advplc dev" (sem ldflags) ou "advplc vX.Y.Z" (release com versão injetada)
+limpar_log | grep -qE "^advplc (dev|v[0-9]+\.)" || { echo "FALHA: advplc ausente"; exit 1; }
 
 kill "$QPID" 2>/dev/null || true; wait "$QPID" 2>/dev/null || true; QPID=""
 echo ""

@@ -1,4 +1,4 @@
-# Pacote Nix para o compilador AdvPP (advplc 4.2.2).
+# Pacote Nix para o compilador AdvPP (advplc 4.4.0).
 #
 # Estratégia: instala o binário pré-compilado e corrige o interpretador
 # ELF com autoPatchelfHook (o binário foi ligado contra /lib64 do host,
@@ -14,7 +14,7 @@
 
 stdenv.mkDerivation {
   pname = "advplc";
-  version = "4.2.2";
+  version = "4.4.0";
 
   src = advppBin;
   dontUnpack = true;
@@ -28,7 +28,7 @@ stdenv.mkDerivation {
 
     mkdir -p $out/share/man/man1
     cat > $out/share/man/man1/advplc.1 << 'MAN'
-.TH ADVPLC 1 "Compilador AdvPP" "Versão 4.2.2"
+.TH ADVPLC 1 "Compilador AdvPP" "Versão 4.4.0"
 .SH NOME
 advplc \- Compilador AdvPL/TLPP
 .SH SINOPSE
