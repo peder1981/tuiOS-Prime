@@ -50,7 +50,7 @@ FAKE = '''#!/usr/bin/env python3
 import os, sys, pathlib
 log = pathlib.Path(os.environ["FAKE_LOG"])
 with log.open("a", encoding="utf-8") as f:
-    f.write(" ".join(sys.argv[1:]) + "\\n")
+    f.write(" ".join(sys.argv[1:]).replace("\\n", " ") + "\\n")
 fila = pathlib.Path(os.environ["FAKE_QUEUE"])
 linhas = fila.read_text(encoding="utf-8").splitlines() if fila.exists() else []
 if not linhas:
@@ -457,7 +457,7 @@ cat > "$FAKE" << 'FDEOF'
 import os, sys, pathlib
 log = pathlib.Path(os.environ["FAKE_LOG"])
 with log.open("a", encoding="utf-8") as f:
-    f.write(" ".join(sys.argv[1:]) + "\n")
+    f.write(" ".join(sys.argv[1:]).replace("\n", " ") + "\n")
 fila = pathlib.Path(os.environ["FAKE_QUEUE"])
 linhas = fila.read_text(encoding="utf-8").splitlines() if fila.exists() else []
 if not linhas:
