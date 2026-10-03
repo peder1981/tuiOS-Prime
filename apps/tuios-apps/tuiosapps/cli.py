@@ -6,13 +6,23 @@ import json
 import os
 import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 from . import __version__
 from .discovery import App, buscar, descobrir
 from .manifest import ErroManifesto, carregar_manifesto
 from .package import ErroPacote, adicionar, empacotar
+from .indice import (
+    ErroIndice,
+    IndiceNaoEncontrado,
+    atualizar as atualizar_indice,
+    baixar_e_conferir,
+    buscar as buscar_no_indice,
+    lookup as lookup_indice,
+)
 from .menu import DialogAusente, rodar_menu
+from .origem import GitAusente, OrigemInvalida, RedeFalhou, eh_remoto, materializar
 from .runner import AdvplcAusente, rodar
 
 EXIT_ERRO = 1
@@ -108,7 +118,12 @@ def _cmd_adicionar(args: argparse.Namespace) -> int:
     if args.sistema and os.geteuid() != 0:
         raise PermissionError("adicionar --sistema exige root (use sudo)")
     destino = _dirs_destino(args.sistema)
-    alvo = adicionar(Path(args.tarball), destino)
+    if eh_remoto(args.tarball):
+        with tempfile.TemporaryDirectory(prefix="tuios-apps-") as td:
+            tarball = materializar(args.tarball, Path(td))
+            alvo = adicionar(tarball, destino)
+    else:
+        alvo = adicionar(Path(args.tarball), destino)
     print(alvo)
     return 0
 
@@ -132,6 +147,50 @@ def _cmd_remover(args: argparse.Namespace) -> int:
 
 def _cmd_menu(args: argparse.Namespace) -> int:
     return rodar_menu()
+
+
+def _cmd_atualizar_indice(args: argparse.Namespace) -> int:
+    print(atualizar_indice(args.url))
+    return 0
+
+
+def _cmd_buscar(args: argparse.Namespace) -> int:
+    entradas = buscar_no_indice(args.termo)
+    if args.json:
+        print(
+            json.dumps(
+                [
+                    {
+                        "nome": e.nome,
+                        "versao": e.versao,
+                        "descricao": e.descricao,
+                        "url": e.url,
+                        "sha256": e.sha256,
+                    }
+                    for e in entradas
+                ],
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 0
+    for e in entradas:
+        print(f"{e.nome:<16} {e.versao:<8} {e.descricao}")
+    return 0
+
+
+def _cmd_instalar(args: argparse.Namespace) -> int:
+    if args.sistema and os.geteuid() != 0:
+        raise PermissionError("instalar --sistema exige root (use sudo)")
+    destino = _dirs_destino(args.sistema)
+    entrada = lookup_indice(args.nome)
+    if entrada is None:
+        raise AppNaoEncontrado(f"app nao encontrado no indice: {args.nome}")
+    with tempfile.TemporaryDirectory(prefix="tuios-apps-") as td:
+        tarball = baixar_e_conferir(entrada, Path(td))
+        alvo = adicionar(tarball, destino)
+    print(alvo)
+    return 0
 
 
 def _montar_parser() -> argparse.ArgumentParser:
@@ -164,7 +223,7 @@ def _montar_parser() -> argparse.ArgumentParser:
     p.add_argument("-o", "--saida", default=None, help="arquivo de saída")
     p.set_defaults(func=_cmd_empacotar)
 
-    p = sub.add_parser("adicionar", help="instala um pacote .tar.gz")
+    p = sub.add_parser("adicionar", help="instala pacote .tar.gz, URL ou origem git")
     p.add_argument("tarball")
     p.add_argument("--sistema", action="store_true", help="instala em /opt/tuios/apps (root)")
     p.set_defaults(func=_cmd_adicionar)
@@ -176,6 +235,20 @@ def _montar_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("menu", help="menu interativo (dialog)")
     p.set_defaults(func=_cmd_menu)
+
+    p = sub.add_parser("atualizar-indice", help="baixa o indice remoto (indice.toml)")
+    p.add_argument("url")
+    p.set_defaults(func=_cmd_atualizar_indice)
+
+    p = sub.add_parser("buscar", help="busca apps no indice local")
+    p.add_argument("termo")
+    p.add_argument("--json", action="store_true", help="saída JSON")
+    p.set_defaults(func=_cmd_buscar)
+
+    p = sub.add_parser("instalar", help="instala um app do indice")
+    p.add_argument("nome")
+    p.add_argument("--sistema", action="store_true", help="instala em /opt/tuios/apps (root)")
+    p.set_defaults(func=_cmd_instalar)
 
     return parser
 
@@ -195,6 +268,18 @@ def main(argv: list[str] | None = None) -> int:
         _erro(str(exc))
         return EXIT_DEPENDENCIA
     except DialogAusente as exc:
+        _erro(str(exc))
+        return EXIT_DEPENDENCIA
+    except (RedeFalhou, OrigemInvalida) as exc:
+        _erro(str(exc))
+        return EXIT_ERRO
+    except IndiceNaoEncontrado as exc:
+        _erro(str(exc))
+        return EXIT_ERRO
+    except ErroIndice as exc:
+        _erro(str(exc))
+        return EXIT_INVALIDO
+    except GitAusente as exc:
         _erro(str(exc))
         return EXIT_DEPENDENCIA
     except PermissionError as exc:
