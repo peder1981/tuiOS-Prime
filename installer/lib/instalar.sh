@@ -28,6 +28,11 @@ gerar_config() {
   install -m 644 /etc/tuios-installer/tuios-session.nix /mnt/etc/nixos/tuios-session.nix
   install -m 644 /etc/tuios-installer/tuios-env.nix     /mnt/etc/nixos/tuios-env.nix
   install -m 644 /etc/tuios-installer/tuios-installer-pkg.nix /mnt/etc/nixos/tuios-installer-pkg.nix
+  # Apps do Nivel C (root de sistema da live) -> destino (spec Fase 2, R17)
+  if [ -d /opt/tuios/apps ]; then
+    mkdir -p /mnt/opt/tuios/apps
+    cp -a /opt/tuios/apps/. /mnt/opt/tuios/apps/
+  fi
   locale_aplicar /mnt/etc/nixos/configuration.nix
   if [ ! -d /sys/firmware/efi ]; then
     # BIOS: GRUB no disco, desliga systemd-boot (mkForce p/ vencer o template)
