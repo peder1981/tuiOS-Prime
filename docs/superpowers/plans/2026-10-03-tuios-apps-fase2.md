@@ -23,7 +23,7 @@
 
 ---
 
-### Task 1: `menu.py` + subcomando `menu` na CLI (TDD)
+### Task 1: `menu.py` + subcomando `menu` na CLI (TDD) *(OK: 64 passed — `82f821b`; fix shebang sandbox `c839f29`)*
 
 **Files:**
 - Create: `apps/tuios-apps/tests/test_menu.py`
@@ -34,7 +34,7 @@
 - Consumes: `discovery.descobrir/buscar/roots` + `App` (Fase 1), `runner.rodar/AdvplcAusente`, `package.adicionar/ErroPacote`, `manifest.ErroManifesto`.
 - Produces: `menu.rodar_menu() -> int`; `menu.DialogAusente(Exception)`; CLI `tuios-apps menu` (exit `0/1/4`). A Task 2 usa o contrato de teste: env `TUIOS_DIALOG` (binário fake), `FAKE_LOG` (1 linha de argv por chamada), `FAKE_QUEUE` (fila `rc|stdout`).
 
-- [ ] **Step 1: Escrever os testes (falham — módulo/subcomando não existem)**
+- [X] **Step 1: Escrever os testes (falham — módulo/subcomando não existem)**
 
 `apps/tuios-apps/tests/test_menu.py` (conteúdo completo):
 
@@ -224,12 +224,12 @@ def test_menu_instalar_erro_msgbox(
     assert not (usuario / "ola-tuios").exists()
 ```
 
-- [ ] **Step 2: Rodar e verificar a falha**
+- [X] **Step 2: Rodar e verificar a falha**
 
 Run: `cd apps/tuios-apps && python3 -m pytest tests/test_menu.py -q`
 Expected: erro de coleção `ModuleNotFoundError: tuiosapps.menu` **e/ou** `SystemExit: 2` (argparse não conhece `menu`).
 
-- [ ] **Step 3: Implementar `menu.py`**
+- [X] **Step 3: Implementar `menu.py`**
 
 `apps/tuios-apps/tuiosapps/menu.py` (conteúdo completo):
 
@@ -386,12 +386,12 @@ def rodar_menu() -> int:
             _tela_instalar(alvo)
 ```
 
-- [ ] **Step 4: Rodar e verificar que ainda falha só na CLI (wiring)**
+- [X] **Step 4: Rodar e verificar que ainda falha só na CLI (wiring)**
 
 Run: `cd apps/tuios-apps && python3 -m pytest tests/test_menu.py -q`
 Expected: ainda falha — `SystemExit: 2`/involução do argparse (subcomando `menu` não existe em `cli.py`).
 
-- [ ] **Step 5: Ligar o subcomando na CLI**
+- [X] **Step 5: Ligar o subcomando na CLI**
 
 `apps/tuios-apps/tuiosapps/cli.py` — três edits:
 
@@ -423,12 +423,12 @@ def _cmd_menu(args: argparse.Namespace) -> int:
         return EXIT_DEPENDENCIA
 ```
 
-- [ ] **Step 6: Rodar e verificar a passagem**
+- [X] **Step 6: Rodar e verificar a passagem**
 
 Run: `cd apps/tuios-apps && python3 -m pytest tests -q`
 Expected: `10 passed` novo + total da suíte (55 + 9 novos = `64 passed`) — nenhum teste da Fase 1 quebrado.
 
-- [ ] **Step 7: Commit**
+- [X] **Step 7: Commit**
 
 ```bash
 git add apps/tuios-apps
@@ -437,7 +437,7 @@ git commit -m "[FEAT] — menu dialog tuios-apps sobre os modulos (R14, R15)"
 
 ---
 
-### Task 2: Smoke do menu no `apps.assert.sh` (R20)
+### Task 2: Smoke do menu no `apps.assert.sh` (R20) *(OK: `APPS-ASSERT-OK` — `821bed1`)*
 
 **Files:**
 - Modify: `scripts-assert/apps.assert.sh` (nova seção 10 antes do `APPS-ASSERT-OK`)
@@ -445,7 +445,7 @@ git commit -m "[FEAT] — menu dialog tuios-apps sobre os modulos (R14, R15)"
 **Interfaces:**
 - Consumes: contrato `TUIOS_DIALOG`/`FAKE_LOG`/`FAKE_QUEUE` da Task 1; estado da seção 9 (roots com `ola-tuios` usuário 9.9.9 + sistema 1.0.0 → descoberto único `ola-tuios`).
 
-- [ ] **Step 1: Acrescentar a seção 10**
+- [X] **Step 1: Acrescentar a seção 10**
 
 Antes da linha final `echo "APPS-ASSERT-OK"` de `scripts-assert/apps.assert.sh`, inserir:
 
@@ -478,13 +478,13 @@ grep -q "ola-tuios" "$W/dialog.log" || falha "menu nao listou ola-tuios"
 
 Obs.: o heredoc do assert usa delimitador `FDEOF` (nunca `EOF` — o shell externo interpretaria o EOF interno).
 
-- [ ] **Step 2: Rodar o assert (deve passar — CLI da Task 1 existe)**
+- [X] **Step 2: Rodar o assert (deve passar — CLI da Task 1 existe)**
 
 Run: `bash scripts-assert/apps.assert.sh`
 Expected: `APPS-ASSERT-OK`
 Se falhar em `menu`, a fila de respostas não bate com a ordem de invocações — conferir contra `_tela_*` da Task 1.
 
-- [ ] **Step 3: Commit**
+- [X] **Step 3: Commit**
 
 ```bash
 git add scripts-assert/apps.assert.sh
@@ -493,7 +493,7 @@ git commit -m "[TEST] — smoke do menu com dialog fake no apps.assert (R20)"
 
 ---
 
-### Task 3: App-exemplo de fábrica + empacotamento Nix (R16)
+### Task 3: App-exemplo de fábrica + empacotamento Nix (R16) *(OK: `validar` OK + `.#tuiosExemplos` = `cwn41fbc...` com 2 arquivos + eval limpo — `ff9cdc4`)*
 
 **Files:**
 - Create: `apps/exemplos/ola-tuios/tuios-app.toml`
@@ -506,7 +506,7 @@ git commit -m "[TEST] — smoke do menu com dialog fake no apps.assert (R20)"
 - Consumes: root `/opt/tuios/apps` (R3 da Fase 1 — `discovery` já o varre); root `/` da live é **tmpfs** (eval verificado: `fileSystems."/".device == "tmpfs"`).
 - Produces: derivação `tuiosExemplos` (attr `.#tuiosExemplos`); regra tmpfiles `C /opt/tuios/apps/ola-tuios ...` na live.
 
-- [ ] **Step 1: Criar o app-exemplo**
+- [X] **Step 1: Criar o app-exemplo**
 
 `apps/exemplos/ola-tuios/tuios-app.toml`:
 
@@ -533,12 +533,12 @@ User Function Ola()
 Return .T.
 ```
 
-- [ ] **Step 2: Validar o manifesto pela CLI da Fase 1**
+- [X] **Step 2: Validar o manifesto pela CLI da Fase 1**
 
 Run: `apps/tuios-apps/tuios-apps validar apps/exemplos/ola-tuios`
 Expected: `OK: ola-tuios 1.0.0 (entry: ola.prw)`
 
-- [ ] **Step 3: Derivação `nixos/apps/exemplos.nix`**
+- [X] **Step 3: Derivação `nixos/apps/exemplos.nix`**
 
 ```nix
 # App-exemplo de fabrica do Nivel C — copiado para /opt/tuios/apps na live (R16).
@@ -551,7 +551,7 @@ runCommand "tuios-exemplos" { } ''
 ''
 ```
 
-- [ ] **Step 4: Build do pacote de exemplos**
+- [X] **Step 4: Build do pacote de exemplos**
 
 Run:
 ```bash
@@ -561,7 +561,7 @@ ls "/tmp/nix-official$OUT/ola-tuios/"
 Expected: `ola.prw  tuios-app.toml`
 (obs: antes precisa do `git add` dos arquivos novos — o flake só enxerga rastreados/staged)
 
-- [ ] **Step 5: Wiring no `flake.nix`** (3 pontos, mesmo padrão do `tuiosApps`)
+- [X] **Step 5: Wiring no `flake.nix`** (3 pontos, mesmo padrão do `tuiosApps`)
 
 1. No `let`, após a linha `tuiosApps = pkgs.callPackage ./nixos/apps/tuios-apps.nix { };`:
 
@@ -583,7 +583,7 @@ Expected: `ola.prw  tuios-app.toml`
         specialArgs = { inherit tuios advplc tuiosApps tuiosExemplos; nixpkgsPath = nixpkgs.outPath; nixpkgsSrc = nixpkgs; };
 ```
 
-- [ ] **Step 6: Wiring no `nixos/iso.nix`** (2 pontos)
+- [X] **Step 6: Wiring no `nixos/iso.nix`** (2 pontos)
 
 1. Args (linha 1):
 
@@ -603,12 +603,12 @@ Expected: `ola.prw  tuios-app.toml`
   ];
 ```
 
-- [ ] **Step 7: Eval de dry-run da ISO**
+- [X] **Step 7: Eval de dry-run da ISO**
 
 Run: `nix --store /tmp/nix-official build .#nixosConfigurations.iso.config.system.build.isoImage --dry-run 2>&1 | tail -3`
 Expected: lista de `.drv` a construir, **sem** erro de eval/sintaxe/arg.
 
-- [ ] **Step 8: Commit**
+- [X] **Step 8: Commit**
 
 ```bash
 git add apps/exemplos nixos/apps/exemplos.nix flake.nix nixos/iso.nix
@@ -617,7 +617,7 @@ git commit -m "[FEAT] — exemplo de fabrica ola-tuios na ISO via tmpfiles (R16)
 
 ---
 
-### Task 4: Instalador copia apps ao destino + T2 prova o exemplo (R17, R18)
+### Task 4: Instalador copia apps ao destino + T2 prova o exemplo (R17, R18) *(OK: `SINTAXE-OK` — `8f7fa59`)*
 
 **Files:**
 - Modify: `installer/lib/instalar.sh` (`gerar_config`)
@@ -627,7 +627,7 @@ git commit -m "[FEAT] — exemplo de fabrica ola-tuios na ISO via tmpfiles (R16)
 - Consumes: exemplo já materializado em `/opt/tuios/apps/ola-tuios` na live (Task 3); `limpar_log`/`enviar`/`esperar` do assert (padrão Fase 1).
 - Produze: destino com `/opt/tuios/apps/ola-tuios` real; T2 exige `"nome": "ola-tuios"` + `"origem": "sistema"`.
 
-- [ ] **Step 1: Cópia no `instalar.sh`**
+- [X] **Step 1: Cópia no `instalar.sh`**
 
 Em `installer/lib/instalar.sh`, função `gerar_config()`, logo **após** a linha
 `install -m 644 /etc/tuios-installer/tuios-installer-pkg.nix /mnt/etc/nixos/tuios-installer-pkg.nix`
@@ -641,7 +641,7 @@ Em `installer/lib/instalar.sh`, função `gerar_config()`, logo **após** a linh
   fi
 ```
 
-- [ ] **Step 2: Trocar o comando e o assert do T2**
+- [X] **Step 2: Trocar o comando e o assert do T2**
 
 Em `scripts-assert/install.assert.sh`:
 
@@ -668,12 +668,12 @@ limpar_log | grep -q '"nome": "ola-tuios"' || { echo "FALHA: ola-tuios nao lista
 limpar_log | grep -q '"origem": "sistema"' || { echo "FALHA: ola-tuios nao veio como sistema"; limpar_log | tail -30; exit 1; }
 ```
 
-- [ ] **Step 3: Sintaxe dos dois scripts**
+- [X] **Step 3: Sintaxe dos dois scripts**
 
 Run: `bash -n installer/lib/instalar.sh && bash -n scripts-assert/install.assert.sh && echo SINTAXE-OK`
 Expected: `SINTAXE-OK`
 
-- [ ] **Step 4: Commit**
+- [X] **Step 4: Commit**
 
 ```bash
 git add installer/lib/instalar.sh scripts-assert/install.assert.sh
@@ -682,7 +682,7 @@ git commit -m "[FEAT] — instalador copia apps de sistema ao destino e T2 prova
 
 ---
 
-### Task 5: Guia `docs/tuios-apps.md` + ponte no README (R19)
+### Task 5: Guia `docs/tuios-apps.md` + ponte no README (R19) *(OK: links conferidos — `8ffacdf`)*
 
 **Files:**
 - Create: `docs/tuios-apps.md`
@@ -692,7 +692,7 @@ git commit -m "[FEAT] — instalador copia apps de sistema ao destino e T2 prova
 - Consumes: interface real da CLI (Fase 1) + menu (Task 1) + exemplo (Task 3).
 - Produze: guia canônico do Nível C; README linka para ele.
 
-- [ ] **Step 1: Criar o guia**
+- [X] **Step 1: Criar o guia**
 
 `docs/tuios-apps.md` (conteúdo completo):
 
@@ -794,7 +794,7 @@ Fonte: `apps/tuios-apps/` (Python stdlib puro, zero deps PyPI);
 empacotamento Nix em `nixos/apps/`.
 ````
 
-- [ ] **Step 2: Ponte no README**
+- [X] **Step 2: Ponte no README**
 
 Em `README.md`, **após** o final da seção `## 🧠 AdvPP: AdvPL/TLPP embarcado`
 (depois da linha `Mais detalhes: [docs/instalacao/advpp-integracao.md](docs/instalacao/advpp-integracao.md).`), inserir:
@@ -810,12 +810,12 @@ lista/executa/empacota pela CLI `tuios-apps` ou pelo menu interativo
 - Guia completo: [docs/tuios-apps.md](docs/tuios-apps.md)
 ```
 
-- [ ] **Step 3: Conferir links**
+- [X] **Step 3: Conferir links**
 
 Run: `grep -n "tuios-apps" README.md docs/tuios-apps.md | head`
 Expected: ponte README → `docs/tuios-apps.md` presente e guia criado.
 
-- [ ] **Step 4: Commit**
+- [X] **Step 4: Commit**
 
 ```bash
 git add docs/tuios-apps.md README.md
@@ -824,7 +824,7 @@ git commit -m "[DOC] — guia tuios-apps.md + ponte no README (R19)"
 
 ---
 
-### Task 6: Regressão final (ISO nova + test-all + test-install)
+### Task 6: Regressão final (ISO nova + test-all + test-install) *(OK: ISO `cqaarkh06b...` · test-all `TODOS OS TESTES PASSARAM` · `INSTAL-TEST-OK`)*
 
 **Files:**
 - Modify: apenas se um teste falhar (corrigir o bug apontado)
@@ -833,17 +833,17 @@ git commit -m "[DOC] — guia tuios-apps.md + ponte no README (R19)"
 - Consumes: Tasks 1–5.
 - Produze: evidência de aceite da Fase 2 (R14–R20).
 
-- [ ] **Step 1: Build da ISO nova (com exemplo)**
+- [X] **Step 1: Build da ISO nova (com exemplo)**
 
 Run: `just iso 2>&1 | tail -2`
 Expected: store path da ISO impressa no fim (sem erro de eval).
 
-- [ ] **Step 2: `just test-all`**
+- [X] **Step 2: `just test-all`**
 
 Run: `just test-all 2>&1 | tail -8`
 Expected: `64 passed` (pytest) + `APPS-ASSERT-OK` + bloco `TODOS OS TESTES PASSARAM! ✅`
 
-- [ ] **Step 3: `just test-install` com a ISO nova**
+- [X] **Step 3: `just test-install` com a ISO nova**
 
 Run:
 ```bash
@@ -854,7 +854,7 @@ Expected: `INSTAL-TEST-OK (T1 instalação + T2 boot)` — T2 com o assert do
 Se falhar: a mensagem `FALHA: ...` aponta o passo — corrigir (ex.: tmpfiles
 não copiou → conferir rule; cópia do instalador ausente → `gerar_config`).
 
-- [ ] **Step 4: Commit (apenas se houve correção)**
+- [X] **Step 4: Commit (apenas se houve correção)**
 
 ```bash
 git add -A
