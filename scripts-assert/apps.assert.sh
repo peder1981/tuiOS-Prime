@@ -108,4 +108,24 @@ TUIOS_DIALOG="$FAKE" FAKE_LOG="$W/dialog.log" FAKE_QUEUE="$W/dialog.queue" \
 grep -q -- "--menu" "$W/dialog.log" || falha "menu nao invocou dialog"
 grep -q "ola-tuios" "$W/dialog.log" || falha "menu nao listou ola-tuios"
 
+# 11. origem remota sem rede: file:// + indice (R21, R23-R26)
+"$BIN" remover ola-tuios >/dev/null || falha "limpeza p/ file://"
+"$BIN" empacotar "$APP" -o "$W/pacote.tar.gz" >/dev/null || falha "empacotar p/ file://"
+"$BIN" adicionar "file://$W/pacote.tar.gz" >/dev/null || falha "adicionar file://"
+"$BIN" listar --json | grep -q '"nome": "ola-tuios"' || falha "file:// nao instalou"
+"$BIN" remover ola-tuios >/dev/null || falha "remover apos file://"
+SHA="$(sha256sum "$W/pacote.tar.gz" | cut -d' ' -f1)"
+cat > "$W/indice-remoto.toml" << INDEOF
+[[app]]
+nome = "ola-tuios"
+versao = "1.0.0"
+descricao = "Primeiro app tuiOS"
+url = "file://$W/pacote.tar.gz"
+sha256 = "$SHA"
+INDEOF
+"$BIN" atualizar-indice "file://$W/indice-remoto.toml" >/dev/null || falha "atualizar-indice"
+"$BIN" buscar primeiro | grep -q "ola-tuios" || falha "buscar no indice"
+"$BIN" instalar ola-tuios >/dev/null || falha "instalar do indice"
+"$BIN" listar --json | grep -q '"origem": "usuario"' || falha "instalar do indice nao instalou"
+
 echo "APPS-ASSERT-OK"
