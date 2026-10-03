@@ -73,7 +73,7 @@ nixos/instalado/configuration.nix # MODIFICAR: env.tuiosApps em systemPackages
 - Consumes: (nada — scaffold)
 - Produces: pacote importável `tuiosapps`; entrypoint `apps/tuios-apps/tuios-apps`; comando de teste padrão **`cd apps/tuios-apps && python3 -m pytest tests -q`** (usado em todas as tasks seguintes)
 
-- [ ] **Step 1: Escrever o teste de smoke (falha — pacote não existe)**
+- [X] **Step 1: Escrever o teste de smoke (falha — pacote não existe)**
 
 `apps/tuios-apps/tests/test_smoke.py`:
 ```python
@@ -84,12 +84,12 @@ def test_pacote_importavel():
     assert tuiosapps.__version__
 ```
 
-- [ ] **Step 2: Rodar e verificar a falha**
+- [X] **Step 2: Rodar e verificar a falha**
 
 Run: `cd apps/tuios-apps && python3 -m pytest tests -q`
 Expected: FAIL com `ModuleNotFoundError: No module named 'tuiosapps'`
 
-- [ ] **Step 3: Implementar o scaffold**
+- [X] **Step 3: Implementar o scaffold**
 
 `apps/tuios-apps/tuiosapps/__init__.py`:
 ```python
@@ -161,12 +161,12 @@ def app_valido(tmp_path: Path) -> Path:
     return d
 ```
 
-- [ ] **Step 4: Rodar e verificar a passagem**
+- [X] **Step 4: Rodar e verificar a passagem**
 
 Run: `cd apps/tuios-apps && python3 -m pytest tests -q`
 Expected: `1 passed`
 
-- [ ] **Step 5: Commit**
+- [X] **Step 5: Commit**
 
 ```bash
 git add apps/tuios-apps
@@ -185,7 +185,7 @@ git commit -m "[TEST] — scaffold do pacote tuios-apps (pyproject, entrypoint, 
 - Consumes: scaffold Task 1
 - Produces: `MANIFEST_FILE = "tuios-app.toml"`; `ErroManifesto`; `Manifest(nome, versao, descricao, entry, categoria, autor, path)`; `carregar_manifesto(dir_app: Path) -> Manifest`
 
-- [ ] **Step 1: Escrever os testes (falham — módulo não existe)**
+- [X] **Step 1: Escrever os testes (falham — módulo não existe)**
 
 `apps/tuios-apps/tests/test_manifest.py`:
 ```python
@@ -304,12 +304,12 @@ def test_campo_nao_texto(app_valido: Path):
         carregar_manifesto(app_valido)
 ```
 
-- [ ] **Step 2: Rodar e verificar a falha**
+- [X] **Step 2: Rodar e verificar a falha**
 
 Run: `cd apps/tuios-apps && python3 -m pytest tests/test_manifest.py -q`
 Expected: FAIL — `ModuleNotFoundError: No module named 'tuiosapps.manifest'`
 
-- [ ] **Step 3: Implementar `manifest.py`**
+- [X] **Step 3: Implementar `manifest.py`**
 
 `apps/tuios-apps/tuiosapps/manifest.py`:
 ```python
@@ -403,12 +403,12 @@ def carregar_manifesto(dir_app: Path) -> Manifest:
     )
 ```
 
-- [ ] **Step 4: Rodar e verificar a passagem**
+- [X] **Step 4: Rodar e verificar a passagem**
 
 Run: `cd apps/tuios-apps && python3 -m pytest tests/test_manifest.py -q`
 Expected: `13 passed` (1 smoke + 12 de manifest)
 
-- [ ] **Step 5: Commit**
+- [X] **Step 5: Commit**
 
 ```bash
 git add apps/tuios-apps
@@ -427,7 +427,7 @@ git commit -m "[FEAT] — manifest tuios-app.toml com validacao estrita (R1, R2)
 - Consumes: `carregar_manifesto`, `ErroManifesto`, `Manifest` (Task 2)
 - Produces: `App(nome, versao, descricao, categoria, autor, origem, path, entry)`; `roots() -> list[tuple[str, Path]]`; `descobrir(avisar=...) -> list[App]`; `buscar(nome, avisar=...) -> App | None`
 
-- [ ] **Step 1: Escrever os testes (falham)**
+- [X] **Step 1: Escrever os testes (falham)**
 
 `apps/tuios-apps/tests/test_discovery.py`:
 ```python
@@ -555,12 +555,12 @@ def test_buscar_encontra_e_retorna_none(roots_tmp, app_valido: Path):
 
 Obs.: a fixture `roots_tmp` zera os roots via env — os testes nunca tocam `/opt` ou `$HOME`.
 
-- [ ] **Step 2: Rodar e verificar a falha**
+- [X] **Step 2: Rodar e verificar a falha**
 
 Run: `cd apps/tuios-apps && python3 -m pytest tests/test_discovery.py -q`
 Expected: FAIL — `ModuleNotFoundError: No module named 'tuiosapps.discovery'`
 
-- [ ] **Step 3: Implementar `discovery.py`**
+- [X] **Step 3: Implementar `discovery.py`**
 
 `apps/tuios-apps/tuiosapps/discovery.py`:
 ```python
@@ -653,12 +653,12 @@ def buscar(nome: str, avisar: Callable[[str], None] = _aviso_padrao) -> App | No
     return None
 ```
 
-- [ ] **Step 4: Rodar e verificar a passagem**
+- [X] **Step 4: Rodar e verificar a passagem**
 
 Run: `cd apps/tuios-apps && python3 -m pytest tests -q`
 Expected: todos passam (smoke + manifest + discovery)
 
-- [ ] **Step 5: Commit**
+- [X] **Step 5: Commit**
 
 ```bash
 git add apps/tuios-apps
@@ -677,7 +677,7 @@ git commit -m "[FEAT] — discovery de apps em roots sistema/usuario (R3-R5)"
 - Consumes: `App` (Task 3)
 - Produces: `AdvplcAusente`; `rodar(app: App, args: list[str]) -> int` (cwd = `app.path`; comando `advplc run <entry> <args...>`; retorna o exit code do filho)
 
-- [ ] **Step 1: Escrever os testes (falham)**
+- [X] **Step 1: Escrever os testes (falham)**
 
 `apps/tuios-apps/tests/test_runner.py`:
 ```python
@@ -766,12 +766,12 @@ printf '%s\n' "$@" > "$OUT"
     ]
 ```
 
-- [ ] **Step 2: Rodar e verificar a falha**
+- [X] **Step 2: Rodar e verificar a falha**
 
 Run: `cd apps/tuios-apps && python3 -m pytest tests/test_runner.py -q`
 Expected: FAIL — `ModuleNotFoundError: No module named 'tuiosapps.runner'`
 
-- [ ] **Step 3: Implementar `runner.py`**
+- [X] **Step 3: Implementar `runner.py`**
 
 `apps/tuios-apps/tuiosapps/runner.py`:
 ```python
@@ -798,12 +798,12 @@ def rodar(app: App, args: list[str]) -> int:
     return subprocess.run(cmd, cwd=app.path, shell=False).returncode
 ```
 
-- [ ] **Step 4: Rodar e verificar a passagem**
+- [X] **Step 4: Rodar e verificar a passagem**
 
 Run: `cd apps/tuios-apps && python3 -m pytest tests -q`
 Expected: todos passam
 
-- [ ] **Step 5: Commit**
+- [X] **Step 5: Commit**
 
 ```bash
 git add apps/tuios-apps
@@ -822,7 +822,7 @@ git commit -m "[FEAT] — runner advplc com cwd do app e exit code propagado (R7
 - Consumes: `carregar_manifesto`, `ErroManifesto`, `MANIFEST_FILE` (Task 2)
 - Produces: `ErroPacote`; `empacotar(dir_app: Path, saida: Path | None = None) -> Path`; `adicionar(tarball: Path, destino: Path) -> Path`; `verificar_checksum(dir_app: Path) -> None`
 
-- [ ] **Step 1: Escrever os testes (falham)**
+- [X] **Step 1: Escrever os testes (falham)**
 
 `apps/tuios-apps/tests/test_package.py`:
 ```python
@@ -1002,12 +1002,12 @@ def test_remover_rmtree(app_valido: Path, tmp_path: Path):
 
 Obs.: a remoção em si é `shutil.rmtree` no `cli` (Task 6) — aqui cobre-se o ciclo do `package`; o teste acima documenta o contrato do alvo.
 
-- [ ] **Step 2: Rodar e verificar a falha**
+- [X] **Step 2: Rodar e verificar a falha**
 
 Run: `cd apps/tuios-apps && python3 -m pytest tests/test_package.py -q`
 Expected: FAIL — `ModuleNotFoundError: No module named 'tuiosapps.package'`
 
-- [ ] **Step 3: Implementar `package.py`**
+- [X] **Step 3: Implementar `package.py`**
 
 `apps/tuios-apps/tuiosapps/package.py`:
 ```python
@@ -1164,12 +1164,12 @@ def adicionar(tarball: Path, destino: Path) -> Path:
     return alvo_final
 ```
 
-- [ ] **Step 4: Rodar e verificar a passagem**
+- [X] **Step 4: Rodar e verificar a passagem**
 
 Run: `cd apps/tuios-apps && python3 -m pytest tests -q`
 Expected: todos passam (arquivo `tests/test_package.py` inteiro)
 
-- [ ] **Step 5: Commit**
+- [X] **Step 5: Commit**
 
 ```bash
 git add apps/tuios-apps
@@ -1188,7 +1188,7 @@ git commit -m "[FEAT] — ciclo de pacote tar.gz com SHA256SUMS e staging seguro
 - Consumes: todos os módulos anteriores; entrypoint da Task 1 chama `main`
 - Produces: `main(argv: list[str] | None = None) -> int` — contrato de exit codes `0/1/2/3/4`
 
-- [ ] **Step 1: Escrever os testes (falham)**
+- [X] **Step 1: Escrever os testes (falham)**
 
 `apps/tuios-apps/tests/test_cli.py`:
 ```python
@@ -1348,12 +1348,12 @@ def test_sem_comando_exit2(capsys):
     assert exc.value.code == 2
 ```
 
-- [ ] **Step 2: Rodar e verificar a falha**
+- [X] **Step 2: Rodar e verificar a falha**
 
 Run: `cd apps/tuios-apps && python3 -m pytest tests/test_cli.py -q`
 Expected: FAIL — `ModuleNotFoundError: No module named 'tuiosapps.cli'`
 
-- [ ] **Step 3: Implementar `cli.py`**
+- [X] **Step 3: Implementar `cli.py`**
 
 `apps/tuios-apps/tuiosapps/cli.py`:
 ```python
@@ -1555,12 +1555,12 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_ERRO
 ```
 
-- [ ] **Step 4: Rodar e verificar a passação**
+- [X] **Step 4: Rodar e verificar a passação**
 
 Run: `cd apps/tuios-apps && python3 -m pytest tests -q`
 Expected: todos passam
 
-- [ ] **Step 5: Commit**
+- [X] **Step 5: Commit**
 
 ```bash
 git add apps/tuios-apps
@@ -1580,7 +1580,7 @@ git commit -m "[FEAT] — CLI tuios-apps: listar/info/rodar/validar/empacotar/ad
 - Consumes: entrypoint `apps/tuios-apps/tuios-apps` executável; contrato `APPS-ASSERT-OK`
 - Produces: `just test-all` roda pytest + apps.assert; CI instala pytest
 
-- [ ] **Step 1: Escrever o assert (falha — arquivo não existe)**
+- [X] **Step 1: Escrever o assert (falha — arquivo não existe)**
 
 `scripts-assert/apps.assert.sh`:
 ```bash
@@ -1672,7 +1672,7 @@ VERSAO="$("$BIN" listar --json | python3 -c 'import json,sys; d=json.load(sys.st
 echo "APPS-ASSERT-OK"
 ```
 
-- [ ] **Step 2: Tornar executável e rodar (o CLI da Task 6 já existe — deve passar)**
+- [X] **Step 2: Tornar executável e rodar (o CLI da Task 6 já existe — deve passar)**
 
 Run:
 ```bash
@@ -1683,7 +1683,7 @@ Expected: `APPS-ASSERT-OK`
 
 Se falhar, a mensagem `FALHA: ...` aponta o passo exato do ciclo — corrigir o CLI/assert antes de prosseguir.
 
-- [ ] **Step 4: Integrar no Justfile**
+- [X] **Step 4: Integrar no Justfile**
 
 No `Justfile`, após a receita `test-nodev` (linha ~64) e antes de `test-install`, adicionar:
 
@@ -1704,7 +1704,7 @@ No recipe `test-all`, após a linha `@bash scripts-assert/nodev.assert.sh` adici
     @bash scripts-assert/apps.assert.sh
 ```
 
-- [ ] **Step 5: pytest no CI**
+- [X] **Step 5: pytest no CI**
 
 No `.github/workflows/build.yml`, imediatamente **antes** do step `- name: Executar testes` (`run: just test-all`), adicionar:
 
@@ -1713,12 +1713,12 @@ No `.github/workflows/build.yml`, imediatamente **antes** do step `- name: Execu
       run: python3 -m pip install --user pytest
 ```
 
-- [ ] **Step 6: Rodar a regressão completa**
+- [X] **Step 6: Rodar a regressão completa**
 
 Run: `just test-all`
 Expected: `APPS-ASSERT-OK` aparece junto dos demais e o bloco final `TODOS OS TESTES PASSARAM! ✅`
 
-- [ ] **Step 7: Commit**
+- [X] **Step 7: Commit**
 
 ```bash
 git add scripts-assert/apps.assert.sh Justfile .github/workflows/build.yml
@@ -1739,7 +1739,7 @@ git commit -m "[TEST] — apps.assert.sh + pytest no just test-all e no CI (F7)"
 - Consumes: `apps/tuios-apps/` (pyproject com `[project.scripts]`); padrão existente do `advplc` (flake → specialArgs → iso.nix → tuios-env.nix → `env.*` no destino)
 - Produces: pacote Nix `tuiosApps`; binário `tuios-apps` no PATH da ISO e do destino
 
-- [ ] **Step 1: Derivação**
+- [X] **Step 1: Derivação**
 
 `nixos/apps/tuios-apps.nix`:
 ```nix
@@ -1768,7 +1768,7 @@ python3Packages.buildPythonApplication {
 }
 ```
 
-- [ ] **Step 2: Build do pacote (deve compilar + rodar os pytest dentro do sandbox)**
+- [X] **Step 2: Build do pacote (deve compilar + rodar os pytest dentro do sandbox)**
 
 Run:
 ```bash
@@ -1778,7 +1778,7 @@ OUT=$(nix --store /tmp/nix-official build .#tuios-apps --print-out-paths --no-li
 Expected: caminho `/tmp/nix-official/nix/store/...-tuios-apps-1.0.0` e depois `tuios-apps 1.0.0`
 (obs: `--no-link` porque o symlink `result` lógico quebra com o `--store` custom desta máquina)
 
-- [ ] **Step 3: `flake.nix`**
+- [X] **Step 3: `flake.nix`**
 
 No `let` (após linha 18):
 ```nix
@@ -1795,7 +1795,7 @@ Em `specialArgs` (linha 45):
         specialArgs = { inherit tuios advplc tuiosApps; nixpkgsPath = nixpkgs.outPath; nixpkgsSrc = nixpkgs; };
 ```
 
-- [ ] **Step 4: `nixos/iso.nix`**
+- [X] **Step 4: `nixos/iso.nix`**
 
 Args (linha 1):
 ```nix
@@ -1811,14 +1811,14 @@ Em `tuios-env.nix` (após linha 98):
       tuiosApps = builtins.storePath ${tuiosApps};
 ```
 
-- [ ] **Step 5: `nixos/instalado/configuration.nix`**
+- [X] **Step 5: `nixos/instalado/configuration.nix`**
 
 Em `environment.systemPackages` (após `env.advplc`):
 ```nix
     env.tuiosApps
 ```
 
-- [ ] **Step 6: Validação de eval (rápida) + build da ISO completa**
+- [X] **Step 6: Validação de eval (rápida) + build da ISO completa**
 
 Run: `nix --store /tmp/nix-official build .#nixosConfigurations.iso.config.system.build.isoImage --dry-run`
 Expected: avalia sem erro de sintaxe/arg (dry-run não baixa tudo)
@@ -1826,7 +1826,7 @@ Expected: avalia sem erro de sintaxe/arg (dry-run não baixa tudo)
 Run: `just iso`
 Expected: ISO nova gerada no store (contém `tuios-apps`)
 
-- [ ] **Step 7: Smoke manual na ISO (opcional, rápido)**
+- [X] **Step 7: Smoke manual na ISO (opcional, rápido)** — verificado por evidência equivalente: (a) closure do toplevel da ISO contém `/nix/store/c8hc5a9w83986vqf6vlqwxmdz8jyggc5-tuios-apps-1.0.0` (`nix path-info -r`); (b) o T2 da Task 9 executou `tuios-apps listar --json` → `[]` no sistema instalado a partir do store da ISO.
 
 Run (QEMU mínimo com serial, esperar prompt):
 ```bash
@@ -1834,7 +1834,7 @@ QEMU com a ISO nova; no prompt: tuios-apps --version; tuios-apps listar --json
 ```
 Expected: `tuios-apps 1.0.0` e `[]`
 
-- [ ] **Step 8: Commit**
+- [X] **Step 8: Commit**
 
 ```bash
 git add nixos/apps/tuios-apps.nix flake.nix nixos/iso.nix nixos/instalado/configuration.nix
@@ -1852,7 +1852,7 @@ git commit -m "[FEAT] — tuios-apps empacotado no Nix: ISO e sistema instalado"
 - Consumes: `tuios-apps` no PATH do sistema instalado (Task 8)
 - Produce: T2 prova que o binário existe e responde JSON vazio
 
-- [ ] **Step 1: Estender o comando do T2**
+- [X] **Step 1: Estender o comando do T2**
 
 Em `scripts-assert/install.assert.sh`, trocar:
 ```bash
@@ -1863,7 +1863,7 @@ por:
 enviar "systemctl is-active tuios-session; hostname; advplc --version 2>&1 | head -1; tuios-apps listar --json; echo T2-FIM"
 ```
 
-- [ ] **Step 2: Acrescentar o assert**
+- [X] **Step 2: Acrescentar o assert**
 
 Após a linha do assert do advplc (`grep -qE "^advplc (dev|v[0-9]+\.)"`), adicionar:
 ```bash
@@ -1871,7 +1871,7 @@ Após a linha do assert do advplc (`grep -qE "^advplc (dev|v[0-9]+\.)"`), adicio
 limpar_log | grep -q '^\[\]$' || { echo "FALHA: tuios-apps listar --json nao retornou []"; limpar_log | tail -30; exit 1; }
 ```
 
-- [ ] **Step 3: Regressão completa (obrigatória)**
+- [X] **Step 3: Regressão completa (obrigatória)**
 
 Run: `just test-all`
 Expected: `TODOS OS TESTES PASSARAM! ✅` (agora com pytest + APPS-ASSERT-OK)
@@ -1879,7 +1879,7 @@ Expected: `TODOS OS TESTES PASSARAM! ✅` (agora com pytest + APPS-ASSERT-OK)
 Run: `just test-install`
 Expected: `INSTAL-TEST-OK (T1 instalação + T2 boot)`
 
-- [ ] **Step 4: Commit**
+- [X] **Step 4: Commit**
 
 ```bash
 git add scripts-assert/install.assert.sh
