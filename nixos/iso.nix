@@ -1,4 +1,4 @@
-{ modulesPath, pkgs, lib, tuios, advplc, nixpkgsPath, ... }:
+{ modulesPath, pkgs, lib, tuios, advplc, nixpkgsPath, nixpkgsSrc, ... }:
 
 {
   imports = [
@@ -65,6 +65,8 @@
   environment.etc."tuios-installer/tuios-installer-pkg.nix".text = ''
     { pkg = builtins.storePath ${pkgs.callPackage ../installer/package.nix { }}; }
   '';
-  # nixpkgs source (NIX_PATH do nixos-install — avaliação offline)
-  environment.etc."tuios-installer/nixpkgs-path".text = nixpkgsPath;
+  # nixpkgs source (NIX_PATH do nixos-install — avaliação offline).
+  # Interpolação do input (nixpkgsSrc) gera contexto → a source ENTRA no
+  # closure da ISO; outPath cru (string sem contexto) NÃO entraria.
+  environment.etc."tuios-installer/nixpkgs-path".text = "${nixpkgsSrc}";
 }
