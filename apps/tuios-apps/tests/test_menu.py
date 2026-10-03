@@ -1,11 +1,12 @@
 from pathlib import Path
 from types import SimpleNamespace
+import sys
 
 import pytest
 
 from tuiosapps.cli import main
 
-FAKE = '''#!/usr/bin/env python3
+FAKE = f'''#!{sys.executable}
 import os, sys, pathlib
 log = pathlib.Path(os.environ["FAKE_LOG"])
 with log.open("a", encoding="utf-8") as f:
