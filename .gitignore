@@ -7,3 +7,7 @@ kernel/target/
 .direnv/
 /disk.img
 *.img
+
+# Python (tuios-apps)
+__pycache__/
+*.pyc
