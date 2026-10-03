@@ -44,8 +44,10 @@ boot() { # $1 = iso ou "null"
   local cdrom=()
   [ "$1" != "null" ] && cdrom=(-cdrom "$1")
   : > "$WORK/log"   # criar antes: bash abre redirects em ordem; fifo bloqueia
-  # -smp 2 + virtio-rng: evita soft lockup/entropia em host carregado
-  qemu-system-x86_64 -M q35 -m 3072M -smp 4 -display none -serial stdio \
+  # KVM explícito (TCG é ~10x mais lento e o boot estoura timeouts);
+  # -cpu host dá RDRAND (entropia) e virtio-rng cobre o resto.
+  qemu-system-x86_64 -enable-kvm -cpu host -M q35 -m 3072M -smp 4 \
+    -display none -serial stdio \
     -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
     -drive if=pflash,format=raw,file="$WORK/vars.fd" \
     -drive file="$DISK",format=qcow2,if=virtio \
