@@ -16,9 +16,14 @@ qemu-kernel: image
     cp /usr/share/OVMF/OVMF_VARS_4M.fd /tmp/tuios-OVMF_VARS.fd
     timeout 25 qemu-system-x86_64 -M q35 -m 512M -display none -serial stdio -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd -drive if=pflash,format=raw,file=/tmp/tuios-OVMF_VARS.fd -drive file={{root}}/disk.img,format=raw,if=ide
 
+# Store flag: se o daemon Nix nao estiver acessivel (este host usa store
+# local /tmp/nix-official), aponta para ele. No CI o daemon funciona e o
+# flag fica vazio.
+nix-store-flag := `nix store ping >/dev/null 2>&1 && echo "" || echo "--store /tmp/nix-official"`
+
 # Build puro (advplc vendorizado em nixos/advpp/advplc; sem --impure)
 qemu-iso:
-    nix build .#nixosConfigurations.iso.config.system.build.isoImage --print-out-paths --out-link result
+    nix {{nix-store-flag}} build .#nixosConfigurations.iso.config.system.build.isoImage --print-out-paths --out-link result
 
 iso: qemu-iso
 
