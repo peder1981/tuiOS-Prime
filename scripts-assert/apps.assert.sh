@@ -83,4 +83,29 @@ cp "$APP/ola.prw" "$TUIOS_APPS_USER/ola-tuios/"
 VERSAO="$("$BIN" listar --json | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d[0]["versao"], d[0]["origem"])')"
 [ "$VERSAO" = "9.9.9 usuario" ] || falha "sombra usuario>sistema nao vale (obteve: $VERSAO)"
 
+# 10. menu com dialog fake (R14/R20) — sem terminal, fila de respostas
+FAKE="$W/fake-dialog"
+cat > "$FAKE" << 'FDEOF'
+#!/usr/bin/env python3
+import os, sys, pathlib
+log = pathlib.Path(os.environ["FAKE_LOG"])
+with log.open("a", encoding="utf-8") as f:
+    f.write(" ".join(sys.argv[1:]).replace("\n", " ") + "\n")
+fila = pathlib.Path(os.environ["FAKE_QUEUE"])
+linhas = fila.read_text(encoding="utf-8").splitlines() if fila.exists() else []
+if not linhas:
+    sys.exit(1)
+rc, _, saida = linhas[0].partition("|")
+fila.write_text("\n".join(linhas[1:]), encoding="utf-8")
+sys.stdout.write(saida)
+sys.exit(int(rc))
+FDEOF
+chmod +x "$FAKE"
+: > "$W/dialog.log"
+printf '0|listar\n0|voltar\n0|sair\n' > "$W/dialog.queue"
+TUIOS_DIALOG="$FAKE" FAKE_LOG="$W/dialog.log" FAKE_QUEUE="$W/dialog.queue" \
+  "$BIN" menu >/dev/null || falha "menu"
+grep -q -- "--menu" "$W/dialog.log" || falha "menu nao invocou dialog"
+grep -q "ola-tuios" "$W/dialog.log" || falha "menu nao listou ola-tuios"
+
 echo "APPS-ASSERT-OK"
