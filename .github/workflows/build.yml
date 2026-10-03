@@ -46,3 +46,41 @@ jobs:
     
     - name: Executar testes
       run: just test-all
+
+  iso-install:
+    name: ISO + Instalador (QEMU)
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Detectar binário AdvPP vendored
+      id: advpp
+      run: echo "ok=$([ -f nixos/advpp/advplc ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+    - name: Instalar Nix
+      if: steps.advpp.outputs.ok == 'true'
+      uses: cachix/install-nix-action@v27
+      with:
+        extra_nix_config: |
+          experimental-features = nix-command flakes
+
+    - name: Dependências (QEMU + OVMF)
+      if: steps.advpp.outputs.ok == 'true'
+      run: |
+        sudo apt update
+        sudo apt install -y qemu-system-x86 qemu-utils ovmf
+        # KVM no runner: permissões para o passo de teste
+        sudo chmod 666 /dev/kvm || true
+
+    - name: Build da ISO (puro, sem --impure)
+      if: steps.advpp.outputs.ok == 'true'
+      run: nix build .#nixosConfigurations.iso.config.system.build.isoImage --print-out-paths --out-link result
+
+    - name: Teste do instalador (T1+T2)
+      if: steps.advpp.outputs.ok == 'true'
+      run: bash scripts-assert/install.assert.sh
+
+    - name: Aviso (sem AdvPP vendored)
+      if: steps.advpp.outputs.ok != 'true'
+      run: echo "::notice::Job ISO pulado — binário nixos/advpp/advplc não versionado (71MB)"
