@@ -12,6 +12,7 @@ from . import __version__
 from .discovery import App, buscar, descobrir
 from .manifest import ErroManifesto, carregar_manifesto
 from .package import ErroPacote, adicionar, empacotar
+from .menu import DialogAusente, rodar_menu
 from .runner import AdvplcAusente, rodar
 
 EXIT_ERRO = 1
@@ -129,6 +130,10 @@ def _cmd_remover(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_menu(args: argparse.Namespace) -> int:
+    return rodar_menu()
+
+
 def _montar_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="tuios-apps",
@@ -169,6 +174,9 @@ def _montar_parser() -> argparse.ArgumentParser:
     p.add_argument("--sistema", action="store_true", help="remove de /opt/tuios/apps (root)")
     p.set_defaults(func=_cmd_remover)
 
+    p = sub.add_parser("menu", help="menu interativo (dialog)")
+    p.set_defaults(func=_cmd_menu)
+
     return parser
 
 
@@ -184,6 +192,9 @@ def main(argv: list[str] | None = None) -> int:
         _erro(str(exc))
         return EXIT_NAO_ENCONTRADO
     except AdvplcAusente as exc:
+        _erro(str(exc))
+        return EXIT_DEPENDENCIA
+    except DialogAusente as exc:
         _erro(str(exc))
         return EXIT_DEPENDENCIA
     except PermissionError as exc:
