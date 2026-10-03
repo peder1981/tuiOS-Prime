@@ -25,6 +25,8 @@
 
     # Assistente de instalação
     (pkgs.callPackage ../installer/package.nix { })
+    pkgs.dialog
+    pkgs.networkmanager
 
     # Utilitários
     pkgs.htop
@@ -46,6 +48,11 @@
 
   # ---------- Material do instalador embutido (/etc/tuios-installer/) ----------
   environment.etc."tuios-installer/configuration.nix".source = ./instalado/configuration.nix;
+  environment.etc."tuios-installer/lib/ui.sh".source       = ../installer/lib/ui.sh;
+  environment.etc."tuios-installer/lib/disco.sh".source    = ../installer/lib/disco.sh;
+  environment.etc."tuios-installer/lib/rede.sh".source     = ../installer/lib/rede.sh;
+  environment.etc."tuios-installer/lib/locale.sh".source   = ../installer/lib/locale.sh;
+  environment.etc."tuios-installer/lib/instalar.sh".source = ../installer/lib/instalar.sh;
   environment.etc."tuios-installer/tuios-session.nix".source = ./tuios-session.nix;
   # Store paths de tuios/advplc para o eval do destino (storePath mantém contexto)
   environment.etc."tuios-installer/tuios-env.nix".text = ''

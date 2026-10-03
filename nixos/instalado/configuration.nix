@@ -32,6 +32,7 @@ in {
     pkgs.go
     pkgs.dialog
     pkgs.networkmanager
+    pkgs.dialog
   ];
 
   environment.variables = { ADVPP_DB = "/var/lib/advpp/advpp.db"; };

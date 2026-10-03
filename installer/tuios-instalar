@@ -4,8 +4,12 @@ set -euo pipefail
 
 VERS="1.0.0"
 BASE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LIB="$BASE/lib"
-[ -d "$LIB" ] || LIB="/etc/tuios-installer/lib"
+LIB=""
+# procura: ao lado do script (src), acima (layout $out/bin + $out/lib), e o etc da ISO
+for _cand in "$BASE/lib" "$BASE/../lib" "/etc/tuios-installer/lib"; do
+  if [ -f "$_cand/ui.sh" ]; then LIB="$_cand"; break; fi
+done
+[ -n "$LIB" ] || { echo "bibliotecas do instalador nao encontradas" >&2; exit 1; }
 
 . "$LIB/ui.sh"
 . "$LIB/disco.sh"
