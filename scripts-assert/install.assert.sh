@@ -90,6 +90,7 @@ esperar "$PROMPT" 600
 sleep 3
 enviar "tuios-instalar --auto --disco /dev/vda --sem-rede --aceitar-tudo; echo RC=\$?"
 esperar "INSTAL-OK" 3600
+grep -a -q "INSTAL-OK" "$WORK/log" || { echo "FALHA: INSTAL-OK ausente"; exit 1; }
 grep -a -q "RC=0" "$WORK/log" || { echo "FALHA: instalador retornou != 0"; limpar_log | tail -30; exit 1; }
 kill "$QPID" 2>/dev/null || true; wait "$QPID" 2>/dev/null || true; QPID=""
 
@@ -105,7 +106,6 @@ limpar_log | grep -q "^tuios-prime$" || { echo "FALHA: hostname errado"; exit 1;
 limpar_log | grep -q "^advplc dev$" || { echo "FALHA: advplc ausente"; exit 1; }
 
 kill "$QPID" 2>/dev/null || true; wait "$QPID" 2>/dev/null || true; QPID=""
-grep -a -q "INSTAL-OK" "$WORK/log" || { echo "FALHA: INSTAL-OK ausente"; exit 1; }
 echo ""
 echo "============================================"
 echo "   INSTAL-TEST-OK (T1 instalação + T2 boot)"
