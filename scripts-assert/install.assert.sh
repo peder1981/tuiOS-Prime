@@ -100,13 +100,15 @@ echo "[2/2] Boot do disco instalado..."
 boot null
 esperar "$PROMPT" 900
 sleep 3
-enviar "systemctl is-active tuios-session; hostname; advplc --version 2>&1 | head -1; echo T2-FIM"
+enviar "systemctl is-active tuios-session; hostname; advplc --version 2>&1 | head -1; tuios-apps listar --json; echo T2-FIM"
 esperar "T2-FIM" 60
 sleep 1
 limpar_log | grep -q "^active$" || { echo "FALHA: tuios-session inativo"; limpar_log | tail -30; exit 1; }
 limpar_log | grep -q "^tuios-prime$" || { echo "FALHA: hostname errado"; exit 1; }
 # aceita "advplc dev" (sem ldflags) ou "advplc vX.Y.Z" (release com versão injetada)
 limpar_log | grep -qE "^advplc (dev|v[0-9]+\.)" || { echo "FALHA: advplc ausente"; exit 1; }
+# tuios-apps instalado e respondendo (JSON vazio — exemplos chegam na fase c-tui)
+limpar_log | grep -q '^\[\]$' || { echo "FALHA: tuios-apps listar --json nao retornou []"; limpar_log | tail -30; exit 1; }
 
 kill "$QPID" 2>/dev/null || true; wait "$QPID" 2>/dev/null || true; QPID=""
 echo ""
