@@ -1,4 +1,4 @@
-{ modulesPath, pkgs, lib, tuios, advplc, tuiosApps, nixpkgsPath, nixpkgsSrc, ... }:
+{ modulesPath, pkgs, lib, tuios, advplc, tuiosApps, tuiosExemplos, nixpkgsPath, nixpkgsSrc, ... }:
 
 {
   imports = [
@@ -46,6 +46,10 @@
 
   systemd.tmpfiles.rules = [
     "d /var/lib/advpp 0755 root root -"
+    # Exemplo de fabrica do Nivel C (R16): copia so se ausente/vazio;
+    # apagado por completo, restaura no proximo boot; conteudo do usuario nunca e sobrescrito.
+    "d /opt/tuios/apps 0755 root root -"
+    "C /opt/tuios/apps/ola-tuios - - - - ${tuiosExemplos}/ola-tuios"
   ];
 
   # ---------- Assistente automático no boot da live ----------

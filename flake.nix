@@ -18,6 +18,8 @@
       advplc = pkgs.callPackage ./nixos/advpp { };
       # Gerenciador de apps AdvPL (Nível C, fase 1 — ver apps/tuios-apps)
       tuiosApps = pkgs.callPackage ./nixos/apps/tuios-apps.nix { };
+      # App-exemplo de fabrica do Nivel C (spec Fase 2, R16)
+      tuiosExemplos = pkgs.callPackage ./nixos/apps/exemplos.nix { };
     in {
       # Shell de desenvolvimento
       devShells.${system}.default = pkgs.mkShell {
@@ -40,13 +42,15 @@
         inherit advplc;
         # Gerenciador de apps AdvPL
         inherit tuiosApps;
+        # App-exemplo de fabrica
+        inherit tuiosExemplos;
         default = self.packages.${system}.tuios;
       };
 
       # Configuração da ISO NixOS
       nixosConfigurations.iso = nixpkgs.lib.nixosSystem {
         inherit system;
-        specialArgs = { inherit tuios advplc tuiosApps; nixpkgsPath = nixpkgs.outPath; nixpkgsSrc = nixpkgs; };
+        specialArgs = { inherit tuios advplc tuiosApps tuiosExemplos; nixpkgsPath = nixpkgs.outPath; nixpkgsSrc = nixpkgs; };
         modules = [
           ./nixos/iso.nix
         ];

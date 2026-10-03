@@ -1,0 +1,6 @@
+nome = "ola-tuios"
+versao = "1.0.0"
+descricao = "Primeiro app tuiOS"
+entry = "ola.prw"
+categoria = "exemplo"
+autor = "Peder Munksgaard"
