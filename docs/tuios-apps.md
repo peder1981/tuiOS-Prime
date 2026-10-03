@@ -73,6 +73,30 @@ As envs `TUIOS_APPS_SYSTEM`/`TUIOS_APPS_USER` sobrepõem os caminhos (testes).
    manifesto; **só então** instala (falha = nada instalado)
 3. `tuios-apps remover nome`
 
+## Origens remotas e índice
+
+```bash
+# Download direto (http/https/file://) — timeout de 30 s
+tuios-apps adicionar https://exemplo/ola-tuios-1.0.0.tar.gz
+
+# Repositório git — git clone --depth 1 (120 s, sem prompt de credencial)
+tuios-apps adicionar https://exemplo/meu-app.git
+
+# Índice remoto (indice.toml) — grava em ${XDG_DATA_HOME:-~/.local/share}/tuios/
+tuios-apps atualizar-indice https://exemplo/indice.toml
+tuios-apps buscar termo [--json]
+tuios-apps instalar <nome> [--sistema]   # baixa e confere o sha256 do índice
+```
+
+O índice é um `indice.toml` com entradas `[[app]]` (`nome`, `versao`,
+`descricao`, `url`, `sha256` de 64 hex); gravação atômica e validação
+completa — índice inválido **não** é gravado (exit 2). `instalar` confere o
+sha256 do arquivo baixado contra o do índice antes de instalar (divergência =
+exit 2, nada instalado).
+
+**Rede só sob comando explícito:** `listar`/`info`/`rodar`/`validar`/
+`empacotar`/`remover`/`menu` nunca acessam a rede. `git ausente` = exit 4.
+
 ## Exemplo de fábrica
 
 A ISO traz o app **`ola-tuios`** em `/opt/tuios/apps` (copiado no boot via
