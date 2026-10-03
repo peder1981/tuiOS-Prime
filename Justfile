@@ -61,6 +61,10 @@ test-nodev:
     cp /usr/share/OVMF/OVMF_VARS_4M.fd /tmp/tuios-OVMF_VARS.fd 2>/dev/null || true
     bash scripts-assert/nodev.assert.sh
 
+# Teste ponta a ponta do instalador (QEMU: ISO -> disco -> boot)
+test-install:
+    bash scripts-assert/install.assert.sh
+
 # Executar todos os testes
 test-all:
     @echo "Executando testes..."
