@@ -27,7 +27,11 @@ sync
 
 1. Ligue o Chromebook segurando `Ctrl+U` (ou selecione o pendrive no boot do PC)
 2. O tuiOS-Prime inicia **automaticamente** como root (autologin)
-3. Abra o instalador:
+3. O **assistente de instalação abre sozinho** no boot — siga as 5 etapas
+   na tela (veja a próxima seção)
+
+> Se você **cancelar** o assistente (ESC/Cancelar/NAO), a sessão tuiOS abre
+> normalmente e você pode reexecutá-lo a qualquer momento:
 
 ```bash
 tuios-instalar

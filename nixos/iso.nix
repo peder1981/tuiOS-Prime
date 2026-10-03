@@ -46,6 +46,43 @@
     "d /var/lib/advpp 0755 root root -"
   ];
 
+  # ---------- Assistente automático no boot da live ----------
+  # O usuário não precisa adivinhar o comando: o assistente abre SOZINHO
+  # no tty1 antes da sessão tuiOS (o WM sozinho não expõe o instalador).
+  # Ao terminar (concluído, falha ou cancelado) a sessão tuiOS assume.
+  # O '-' no ExecStartPre garante que cancelamento/falha não derrubam
+  # a sessão. Exclusivo da ISO live — o sistema instalado não importa
+  # este módulo.
+  systemd.services.tuios-session.serviceConfig = {
+    # bash -lc: login shell carrega o PATH do systemPackages (tuios-instalar,
+    # dialog, clear) — o PATH do serviço systemd sozinho é mínimo.
+    ExecStartPre = [ ("-" + "${pkgs.bash}/bin/bash -lc " + pkgs.writeShellScript "tuios-live-autostart" ''
+      # DIAGNÓSTICO: só os marcadores vão ao arquivo. NUNCA redirecionar
+      # stdout/stderr do script inteiro — dialog renderiza a tela em stderr
+      # e o redirect global escondia o wizard dentro do log (tela congelada).
+      LOG=/var/log/tuios-live-autostart.log
+      echo "== autostart iniciado $(date) ==" >> "$LOG"
+      clear
+      echo "=========================================================="
+      echo "   tuiOS-Prime — Assistente de Instalacao (live)"
+      echo ""
+      echo "   O assistente vai instalar o sistema neste computador."
+      echo "   Para apenas testar, cancele (ESC/Cancelar/NAO)."
+      echo "   Depois voce pode reexecuta-lo com:  tuios-instalar"
+      echo "=========================================================="
+      echo
+      ${pkgs.coreutils}/bin/sleep 2
+      rc=0
+      tuios-instalar || rc=$?
+      clear
+      echo "== autostart concluido $(date) rc=$rc ==" >> "$LOG"
+    '' ) ];
+    # dialog no tty1 precisa de TERM e de controlling terminal
+    # (tty-force = TCSCTTY — sem ele /dev/tty falha e o wizard morre)
+    Environment = [ "TERM=linux" ];
+    StandardInput = lib.mkForce "tty-force";
+  };
+
   # ---------- Material do instalador embutido (/etc/tuios-installer/) ----------
   environment.etc."tuios-installer/configuration.nix".source = ./instalado/configuration.nix;
   environment.etc."tuios-installer/lib/ui.sh".source       = ../installer/lib/ui.sh;
