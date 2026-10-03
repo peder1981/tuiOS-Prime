@@ -78,7 +78,8 @@ esperar() { # $1=padrão $2=timeout_s
 
 enviar() { printf '%s\n' "$1" >&8; }
 
-limpar_log() { tr -d '\000-\010\013-\037' < "$WORK/log" | sed 's/\[[0-9;]*[mKH]//g'; }
+# strip cobre também escapes tipo [?2004h/l (bracketed paste) e [0m
+limpar_log() { tr -d '\000-\010\013-\037' < "$WORK/log" | sed 's/\[[0-9;?]*[a-zA-Z]//g'; }
 
 # Prompt real do bash (PS1 com "]#" — não "~#")
 PROMPT='root@tuios-prime:~]#'
@@ -100,7 +101,8 @@ enviar "systemctl is-active tuios-session; hostname; advplc --version 2>&1 | hea
 esperar "T2-FIM" 60
 sleep 1
 limpar_log | grep -q "^active$" || { echo "FALHA: tuios-session inativo"; limpar_log | tail -30; exit 1; }
-limpar_log | grep -q "advplc" || { echo "FALHA: advplc ausente"; exit 1; }
+limpar_log | grep -q "^tuios-prime$" || { echo "FALHA: hostname errado"; exit 1; }
+limpar_log | grep -q "^advplc dev$" || { echo "FALHA: advplc ausente"; exit 1; }
 
 kill "$QPID" 2>/dev/null || true; wait "$QPID" 2>/dev/null || true; QPID=""
 grep -a -q "INSTAL-OK" "$WORK/log" || { echo "FALHA: INSTAL-OK ausente"; exit 1; }
