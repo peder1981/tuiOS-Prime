@@ -54,6 +54,12 @@ boot() { # $1 = iso ou "null"
     -netdev user,id=n0 -device virtio-net-pci,netdev=n0 \
     > "$WORK/log" 2>&1 < "$WORK/in" &
   QPID=$!
+  # Escritor persistente: sem isto, o QEMU fica bloqueado abrindo a fifo
+  # para leitura e nunca exec (deadlock com o aguardo do prompt).
+  if [ -z "${FIFO_WR:-}" ]; then
+    exec 8> "$WORK/in"
+    FIFO_WR=1
+  fi
 }
 
 esperar() { # $1=padrão $2=timeout_s
@@ -68,7 +74,7 @@ esperar() { # $1=padrão $2=timeout_s
   return 1
 }
 
-enviar() { printf '%s\n' "$1" > "$WORK/in"; }
+enviar() { printf '%s\n' "$1" >&8; }
 
 limpar_log() { tr -d '\000-\010\013-\037' < "$WORK/log" | sed 's/\[[0-9;]*[mKH]//g'; }
 
