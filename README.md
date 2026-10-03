@@ -94,6 +94,14 @@ advplc serve programa.prw    # roda em modo web
 
 Mais detalhes: [docs/instalacao/advpp-integracao.md](docs/instalacao/advpp-integracao.md).
 
+
+## 📦 Apps AdvPL (Nível C)
+
+O tuiOS também trata programas AdvPL como **apps**: manifesto `tuios-app.toml`,
+lista/executa/empacota pela CLI `tuios-apps` ou pelo menu interativo
+`tuios-apps menu`. A ISO já traz o exemplo `ola-tuios`.
+
+- Guia completo: [docs/tuios-apps.md](docs/tuios-apps.md)
 ## 📋 Suporte a Chromebook
 
 O tuiOS-Prime é otimizado para Chromebooks com hardware limitado:
