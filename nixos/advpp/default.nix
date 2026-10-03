@@ -5,10 +5,12 @@
 # que não existe no NixOS). Evita compilar o Go no sandbox (sem rede
 # para módulos).
 #
-# O binário padrão vem do checkout local. Para outra origem, sobrescreva
-# o argumento `advppBin`, por exemplo:
-#   advplc = pkgs.callPackage ./nixos/advpp { advppBin = /caminho/para/advplc; };
-{ lib, stdenv, autoPatchelfHook, glibc, advppBin ? /home/peder/Projetos/AdvPP/advplc }:
+# Binário versionado no repo (nixos/advpp/advplc) → build 100% puro,
+# viabilizando CI. Fallback: checkout local AdvPP (exige --impure).
+# Para outra origem: pkgs.callPackage ./nixos/advpp { advppBin = /caminho; };
+{ lib, stdenv, autoPatchelfHook, glibc
+, advppBin ? (if builtins.pathExists ./advplc then ./advplc
+              else /home/peder/Projetos/AdvPP/advplc) }:
 
 stdenv.mkDerivation {
   pname = "advplc";
