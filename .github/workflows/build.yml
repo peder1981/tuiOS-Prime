@@ -44,6 +44,9 @@ jobs:
       env:
         RUST_BACKTRACE: 1
     
+    - name: Instalar pytest (tuios-apps)
+      run: python3 -m pip install --user pytest
+
     - name: Executar testes
       run: just test-all
 

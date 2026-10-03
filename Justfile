@@ -65,6 +65,14 @@ test-nodev:
     cp /usr/share/OVMF/OVMF_VARS_4M.fd /tmp/tuios-OVMF_VARS.fd 2>/dev/null || true
     bash scripts-assert/nodev.assert.sh
 
+# Testes unitários do tuios-apps (Python)
+test-python:
+    cd apps/tuios-apps && python3 -m pytest tests -q
+
+# Assert do ciclo completo do tuios-apps
+test-apps:
+    bash scripts-assert/apps.assert.sh
+
 # Teste ponta a ponta do instalador (QEMU: ISO -> disco -> boot)
 test-install:
     bash scripts-assert/install.assert.sh
@@ -81,6 +89,8 @@ test-all:
     @bash scripts-assert/net.assert.sh
     @bash scripts-assert/nonic.assert.sh
     @bash scripts-assert/nodev.assert.sh
+    @cd apps/tuios-apps && python3 -m pytest tests -q
+    @bash scripts-assert/apps.assert.sh
     @echo ""
     @echo "========================================"
     @echo "   TODOS OS TESTES PASSARAM! ✅"
