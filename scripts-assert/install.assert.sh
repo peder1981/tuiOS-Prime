@@ -10,7 +10,7 @@ if [ -z "$ISO" ]; then
     [ -f "$c" ] && ISO="$c" && break
   done
 fi
-if [ -z "$ISO" ] && [ -e result ]; then
+if [ -z "$ISO" ] && { [ -L result ] || [ -e result ]; }; then
   # out-link pode apontar para /nix/store lógico (build com --store local)
   REAL=$(readlink -f result 2>/dev/null || true)
   case "$REAL" in
@@ -43,6 +43,7 @@ boot() { # $1 = iso ou "null"
   cp "$OVMF_VARS" "$WORK/vars.fd"
   local cdrom=()
   [ "$1" != "null" ] && cdrom=(-cdrom "$1")
+  : > "$WORK/log"   # criar antes: bash abre redirects em ordem; fifo bloqueia
   # -smp 2 + virtio-rng: evita soft lockup/entropia em host carregado
   qemu-system-x86_64 -M q35 -m 3072M -smp 2 -display none -serial stdio \
     -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
@@ -51,7 +52,7 @@ boot() { # $1 = iso ou "null"
     -device virtio-rng-pci \
     "${cdrom[@]}" \
     -netdev user,id=n0 -device virtio-net-pci,netdev=n0 \
-    < "$WORK/in" > "$WORK/log" 2>&1 &
+    > "$WORK/log" 2>&1 < "$WORK/in" &
   QPID=$!
 }
 
