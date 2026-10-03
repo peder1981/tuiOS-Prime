@@ -33,7 +33,7 @@ Nenhuma mudança no manifesto, no menu nem no instalador — os exit codes
 
 ---
 
-### Task 1: `origem.py` — download + clone git (TDD)
+### Task 1: `origem.py` — download + clone git (TDD) *(OK: `ModuleNotFoundError` → 8 passed → sandbox `BUILD-SANDBOX-OK` — `03d9375`)*
 
 **Files:**
 - Create: `apps/tuios-apps/tests/test_origem.py`
@@ -46,7 +46,7 @@ Nenhuma mudança no manifesto, no menu nem no instalador — os exit codes
   `materializar(origem, tmp)->Path` · exceções `RedeFalhou` (exit 1),
   `OrigemInvalida` (exit 1), `GitAusente` (exit 4).
 
-- [ ] **Step 1: Escrever `tests/test_origem.py` (falha — módulo não existe)**
+- [X] **Step 1: Escrever `tests/test_origem.py` (falha — módulo não existe)**
 
 ```python
 import functools
@@ -176,12 +176,12 @@ def test_materializar_git_ausente(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         materializar("https://exemplo.invalido/app.git", tmp_path / "work")
 ```
 
-- [ ] **Step 2: Rodar e verificar a falha**
+- [X] **Step 2: Rodar e verificar a falha**
 
 Run: `cd apps/tuios-apps && python3 -m pytest tests/test_origem.py -q`
 Expected: erro de coleção `ModuleNotFoundError: No module named 'tuiosapps.origem'`.
 
-- [ ] **Step 3: Implementar `tuiosapps/origem.py`**
+- [X] **Step 3: Implementar `tuiosapps/origem.py`**
 
 ```python
 """Origens remotas: download http(s)/file e clone git (R21–R22, R26)."""
@@ -276,12 +276,12 @@ def materializar(origem: str, tmp: Path) -> Path:
     raise OrigemInvalida(f"origem nao suportada (http/https/file/.git): {origem}")
 ```
 
-- [ ] **Step 4: Rodar e verificar a passagem**
+- [X] **Step 4: Rodar e verificar a passagem**
 
 Run: `cd apps/tuios-apps && python3 -m pytest tests/test_origem.py -q`
 Expected: `8 passed` (ou `6 passed, 2 skipped` se `git` ausente no host).
 
-- [ ] **Step 5: git no checkPhase do Nix**
+- [X] **Step 5: git no checkPhase do Nix**
 
 Em `nixos/apps/tuios-apps.nix`:
 
@@ -289,14 +289,14 @@ Em `nixos/apps/tuios-apps.nix`:
 2. `nativeCheckInputs = [ python3Packages.pytest ];` →
    `nativeCheckInputs = [ python3Packages.pytest git ];`
 
-- [ ] **Step 6: Prova no sandbox Nix (checkPhase roda os testes)**
+- [X] **Step 6: Prova no sandbox Nix (checkPhase roda os testes)**
 
 Run: `nix --store /tmp/nix-official build .#tuiosApps --no-link 2>&1 | tail -3`
 Expected: termina sem erro (checkPhase com os testes de origem verdes —
 inclui os 2 de git, pois `git` agora está no PATH do build).
 Se falhar: `nix --store /tmp/nix-official log <drv>` mostra o teste.
 
-- [ ] **Step 7: Commit**
+- [X] **Step 7: Commit**
 
 ```bash
 git add apps/tuios-apps nixos/apps/tuios-apps.nix
@@ -305,7 +305,7 @@ git commit -m "[FEAT] — origem remota: download http(s)/file e clone git (R21,
 
 ---
 
-### Task 2: `indice.py` — índice local + sha256 (TDD)
+### Task 2: `indice.py` — índice local + sha256 (TDD) *(OK: `ModuleNotFoundError` → 11 passed — `928241e`)*
 
 **Files:**
 - Create: `apps/tuios-apps/tests/test_indice.py`
@@ -319,7 +319,7 @@ git commit -m "[FEAT] — origem remota: download http(s)/file e clone git (R21,
   exceções `ErroIndice` (exit 2), `IndiceNaoEncontrado` (exit 1).
   Store do índice: `${XDG_DATA_HOME:-~/.local/share}/tuios/indice.toml`.
 
-- [ ] **Step 1: Escrever `tests/test_indice.py` (falha — módulo não existe)**
+- [X] **Step 1: Escrever `tests/test_indice.py` (falha — módulo não existe)**
 
 ```python
 import hashlib
@@ -450,12 +450,12 @@ def test_baixar_e_conferir_sha_divergente(xdg: Path, tmp_path: Path):
     assert not (tmp_path / "work" / "pacote.tar.gz").exists()
 ```
 
-- [ ] **Step 2: Rodar e verificar a falha**
+- [X] **Step 2: Rodar e verificar a falha**
 
 Run: `cd apps/tuios-apps && python3 -m pytest tests/test_indice.py -q`
 Expected: coleção falha `ModuleNotFoundError: tuiosapps.indice`.
 
-- [ ] **Step 3: Implementar `tuiosapps/indice.py`**
+- [X] **Step 3: Implementar `tuiosapps/indice.py`**
 
 ```python
 """Índice remoto de apps (R23–R25): atualizar / buscar / instalar com sha256."""
@@ -585,12 +585,12 @@ def baixar_e_conferir(entrada: Entrada, tmp: Path) -> Path:
     return tarball
 ```
 
-- [ ] **Step 4: Rodar e verificar a passagem**
+- [X] **Step 4: Rodar e verificar a passagem**
 
 Run: `cd apps/tuios-apps && python3 -m pytest tests/test_indice.py -q`
 Expected: `11 passed`.
 
-- [ ] **Step 5: Commit**
+- [X] **Step 5: Commit**
 
 ```bash
 git add apps/tuios-apps
@@ -599,7 +599,7 @@ git commit -m "[FEAT] — indice local de apps com validacao e sha256 (R23, R24,
 
 ---
 
-### Task 3: Wiring na CLI — `adicionar` remoto + `atualizar-indice`/`buscar`/`instalar` (TDD)
+### Task 3: Wiring na CLI — `adicionar` remoto + `atualizar-indice`/`buscar`/`instalar` (TDD) *(OK: 12 failed → **95 passed** → sandbox `SANDBOX-OK` — `59ad317`)*
 
 **Files:**
 - Create: `apps/tuios-apps/tests/test_remoto.py`
@@ -612,7 +612,7 @@ git commit -m "[FEAT] — indice local de apps com validacao e sha256 (R23, R24,
   `atualizar-indice <url>` (0/1/2), `buscar <termo> [--json]` (0/1),
   `instalar <nome> [--sistema]` (0/1/2/3).
 
-- [ ] **Step 1: Escrever `tests/test_remoto.py` (falha — subcomandos inexistentes)**
+- [X] **Step 1: Escrever `tests/test_remoto.py` (falha — subcomandos inexistentes)**
 
 ```python
 import hashlib
@@ -750,12 +750,12 @@ def test_instalar_sha_divergente(roots_tmp, xdg, app_valido: Path, tmp_path: Pat
     assert not (usuario / "ola-tuios").exists()
 ```
 
-- [ ] **Step 2: Rodar e verificar a falha**
+- [X] **Step 2: Rodar e verificar a falha**
 
 Run: `cd apps/tuios-apps && python3 -m pytest tests/test_remoto.py -q`
 Expected: `12 failed` — argparse `SystemExit: 2` (subcomandos novos inexistentes).
 
-- [ ] **Step 3: Ligar na CLI**
+- [X] **Step 3: Ligar na CLI**
 
 `apps/tuios-apps/tuiosapps/cli.py` — cinco blocos:
 
@@ -875,17 +875,17 @@ def _cmd_instalar(args: argparse.Namespace) -> int:
 
 Obs.: `import tempfile` entra no topo junto aos imports stdlib.
 
-- [ ] **Step 4: Rodar a suíte completa**
+- [X] **Step 4: Rodar a suíte completa**
 
 Run: `cd apps/tuios-apps && python3 -m pytest tests -q`
 Expected: **95 passed** (64 + 8 + 11 + 12). Divergência → investigar.
 
-- [ ] **Step 5: Prova no sandbox Nix**
+- [X] **Step 5: Prova no sandbox Nix**
 
 Run: `nix --store /tmp/nix-official build .#tuiosApps --no-link 2>&1 | tail -2`
 Expected: sem erro (checkPhase com 95 testes verdes no sandbox).
 
-- [ ] **Step 6: Commit**
+- [X] **Step 6: Commit**
 
 ```bash
 git add apps/tuios-apps
@@ -894,7 +894,7 @@ git commit -m "[FEAT] — CLI com adicionar remoto, atualizar-indice, buscar e i
 
 ---
 
-### Task 4: E2E sem rede no `apps.assert.sh` (file:// + índice)
+### Task 4: E2E sem rede no `apps.assert.sh` (file:// + índice) *(OK: `APPS-ASSERT-OK` 11 seções — `c04ba41`)*
 
 **Files:**
 - Modify: `scripts-assert/apps.assert.sh` (seção 11 antes de `APPS-ASSERT-OK`)
@@ -905,7 +905,7 @@ git commit -m "[FEAT] — CLI com adicionar remoto, atualizar-indice, buscar e i
 - Produz: evidência de `adicionar file://`, `atualizar-indice file://`,
   `buscar` e `instalar` em ambiente real (zero rede — R26).
 
-- [ ] **Step 1: Acrescentar a seção 11**
+- [X] **Step 1: Acrescentar a seção 11**
 
 Antes de `echo "APPS-ASSERT-OK"`:
 
@@ -933,12 +933,12 @@ INDEOF
 
 Obs.: heredoc `INDEOF` (nunca `EOF` — o shell externo interpretaria).
 
-- [ ] **Step 2: Rodar o assert**
+- [X] **Step 2: Rodar o assert**
 
 Run: `bash scripts-assert/apps.assert.sh`
 Expected: `APPS-ASSERT-OK`
 
-- [ ] **Step 3: Commit**
+- [X] **Step 3: Commit**
 
 ```bash
 git add scripts-assert/apps.assert.sh
@@ -947,12 +947,12 @@ git commit -m "[TEST] — E2E file:// e indice no apps.assert (R21, R23-R26)"
 
 ---
 
-### Task 5: Documentação — seção no guia `docs/tuios-apps.md`
+### Task 5: Documentação — seção no guia `docs/tuios-apps.md` *(OK: guia linha 76 — `4198d2a`)*
 
 **Files:**
 - Modify: `docs/tuios-apps.md` (nova seção após "Ciclo de pacote")
 
-- [ ] **Step 1: Inserir a seção**
+- [X] **Step 1: Inserir a seção**
 
 Após a seção **Ciclo de pacote** (antes de **Exemplo de fábrica**):
 
@@ -982,12 +982,12 @@ exit 2, nada instalado).
 `empacotar`/`remover`/`menu` nunca acessam a rede. `git ausente` = exit 4.
 ````
 
-- [ ] **Step 2: Conferir**
+- [X] **Step 2: Conferir**
 
 Run: `grep -n "Origens remotas" docs/tuios-apps.md`
 Expected: 1 ocorrência; links internos continuam íntegros.
 
-- [ ] **Step 3: Commit**
+- [X] **Step 3: Commit**
 
 ```bash
 git add docs/tuios-apps.md
@@ -996,29 +996,29 @@ git commit -m "[DOC] — guia tuios-apps: origens remotas e indice (R21-R26)"
 
 ---
 
-### Task 6: Regressão final (sandbox + ISO + test-all + test-install)
+### Task 6: Regressão final (sandbox + ISO + test-all + test-install) *(OK: ISO `bra2y7l1k2...` · `95 passed` + `TODOS OS TESTES PASSARAM` · `INSTAL-TEST-OK`)*
 
 **Files:**
 - Modify: apenas se um teste falhar (corrigir o bug apontado)
 
-- [ ] **Step 1: checkPhase no sandbox já coberto nas Tasks 1/3** — refazer para
+- [X] **Step 1: checkPhase no sandbox já coberto nas Tasks 1/3** — refazer para
   garantir o estado final:
 
 Run: `nix --store /tmp/nix-official build .#tuiosApps --no-link 2>&1 | tail -2`
 Expected: sem erro (95 testes no sandbox, incl. git).
 
-- [ ] **Step 2: ISO nova**
+- [X] **Step 2: ISO nova**
 
 Run: `just iso 2>&1 | tail -2`
 Expected: store path da ISO impressa, sem erro (eval + checkPhase).
 
-- [ ] **Step 3: `just test-all`**
+- [X] **Step 3: `just test-all`**
 
 Run: `just test-all 2>&1 | tail -6`
 Expected: `95 passed` + `APPS-ASSERT-OK` (com as 11 seções) +
 `TODOS OS TESTES PASSARAM! ✅`
 
-- [ ] **Step 4: `test-install` com a ISO nova (aceitação do Nível C)**
+- [X] **Step 4: `test-install` com a ISO nova (aceitação do Nível C)**
 
 Run:
 ```bash
@@ -1026,7 +1026,7 @@ ISO="$(ls /tmp/nix-official$(readlink result)/iso/*.iso)" just test-install 2>&1
 ```
 Expected: `INSTAL-TEST-OK (T1 instalação + T2 boot)`.
 
-- [ ] **Step 5: Commit (apenas se houve correção)**
+- [X] **Step 5: Commit (apenas se houve correção)**
 
 ```bash
 git add -A
