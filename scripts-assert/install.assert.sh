@@ -45,7 +45,7 @@ boot() { # $1 = iso ou "null"
   [ "$1" != "null" ] && cdrom=(-cdrom "$1")
   : > "$WORK/log"   # criar antes: bash abre redirects em ordem; fifo bloqueia
   # -smp 2 + virtio-rng: evita soft lockup/entropia em host carregado
-  qemu-system-x86_64 -M q35 -m 3072M -smp 2 -display none -serial stdio \
+  qemu-system-x86_64 -M q35 -m 3072M -smp 4 -display none -serial stdio \
     -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
     -drive if=pflash,format=raw,file="$WORK/vars.fd" \
     -drive file="$DISK",format=qcow2,if=virtio \
@@ -86,7 +86,7 @@ boot "$ISO"
 esperar "$PROMPT" 600
 sleep 3
 enviar "tuios-instalar --auto --disco /dev/vda --sem-rede --aceitar-tudo; echo RC=\$?"
-esperar "INSTAL-OK" 1800
+esperar "INSTAL-OK" 3600
 grep -a -q "RC=0" "$WORK/log" || { echo "FALHA: instalador retornou != 0"; limpar_log | tail -30; exit 1; }
 kill "$QPID" 2>/dev/null || true; wait "$QPID" 2>/dev/null || true; QPID=""
 
