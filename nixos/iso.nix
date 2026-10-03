@@ -1,4 +1,4 @@
-{ modulesPath, pkgs, lib, tuios, advplc, nixpkgsPath, nixpkgsSrc, ... }:
+{ modulesPath, pkgs, lib, tuios, advplc, tuiosApps, nixpkgsPath, nixpkgsSrc, ... }:
 
 {
   imports = [
@@ -22,6 +22,8 @@
 
     # Compilador AdvPL/TLPP (do pacote local ./advpp)
     advplc
+    # Gerenciador de apps AdvPL (Nível C, fase 1)
+    tuiosApps
 
     # Assistente de instalação
     (pkgs.callPackage ../installer/package.nix { })
@@ -96,6 +98,7 @@
     {
       tuios  = builtins.storePath ${tuios.packages.${pkgs.system}.default};
       advplc = builtins.storePath ${advplc};
+      tuiosApps = builtins.storePath ${tuiosApps};
     }
   '';
   # Store path do próprio instalador para o template do destino

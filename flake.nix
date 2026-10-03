@@ -16,6 +16,8 @@
       pkgs = nixpkgs.legacyPackages.${system};
       # Compilador AdvPP (binário pré-compilado local, ver nixos/advpp).
       advplc = pkgs.callPackage ./nixos/advpp { };
+      # Gerenciador de apps AdvPL (Nível C, fase 1 — ver apps/tuios-apps)
+      tuiosApps = pkgs.callPackage ./nixos/apps/tuios-apps.nix { };
     in {
       # Shell de desenvolvimento
       devShells.${system}.default = pkgs.mkShell {
@@ -36,13 +38,15 @@
         tuios = tuios.packages.${system}.default;
         # Compilador AdvPL/TLPP
         inherit advplc;
+        # Gerenciador de apps AdvPL
+        inherit tuiosApps;
         default = self.packages.${system}.tuios;
       };
 
       # Configuração da ISO NixOS
       nixosConfigurations.iso = nixpkgs.lib.nixosSystem {
         inherit system;
-        specialArgs = { inherit tuios advplc; nixpkgsPath = nixpkgs.outPath; nixpkgsSrc = nixpkgs; };
+        specialArgs = { inherit tuios advplc tuiosApps; nixpkgsPath = nixpkgs.outPath; nixpkgsSrc = nixpkgs; };
         modules = [
           ./nixos/iso.nix
         ];

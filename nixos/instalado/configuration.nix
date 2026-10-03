@@ -23,6 +23,7 @@ in {
   environment.systemPackages = [
     env.tuios
     env.advplc
+    env.tuiosApps
     installer.pkg
     pkgs.htop
     pkgs.pciutils
