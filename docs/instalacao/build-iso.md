@@ -70,17 +70,17 @@ cd /home/peder/Projetos/tuiOS-Prime
 # Gerar/atualizar flake.lock (primeira vez ou após mudar inputs)
 nix flake metadata
 
-# Construir a ISO (usa --impure por causa do binário local do AdvPP)
-nix build --impure .#nixosConfigurations.iso.config.system.build.isoImage --print-out-paths
+# Construir a ISO (build puro — binário advplc vendorizado no repo)
+nix build .#nixosConfigurations.iso.config.system.build.isoImage --print-out-paths
+
+# Alternativa com atalho do Justfile
+just iso
 ```
 
-**Nota sobre `--impure`:** o pacote `advplc` instala o binário pré-compilado
-do checkout local (`/home/peder/Projetos/AdvPP/advplc`), o que exige avaliação
-impura. Para outra origem, sobrescreva o argumento `advppBin`:
-
-```nix
-advplc = pkgs.callPackage ./nixos/advpp { advppBin = /caminho/para/advplc; };
-```
+**Nota sobre pureza:** o binário do compilador (`advplc`, 71MB) está
+versionado em `nixos/advpp/advplc` — a avaliação é **100% pura** (sem
+`--impure`), o que permite o build no CI. Se o binário não existir, há
+fallback para o checkout local `AdvPP/` (aí sim exige `--impure`).
 
 **Tempo estimado:** 20–60 minutos na primeira vez (download do closure NixOS);
 rebuilds incrementais levam minutos.
@@ -144,7 +144,21 @@ qemu-system-x86_64 -M q35 -m 2048M -display none -serial stdio \
 traz um nome longo que não corresponde ao rótulo gravado; a entrada
 UEFI (`EFI/boot/grub.cfg`) usa o nome curto correto.
 
-### 3. Checklist de boot bem-sucedido
+### 3. Teste ponta a ponta do instalador (T1+T2)
+
+```bash
+just test-install
+```
+
+- **T1:** QEMU boota a ISO, roda `tuios-instalar --auto` contra um disco
+  qcow2 de 8GB e espera o token `INSTAL-OK`
+- **T2:** reboot sem ISO — o disco instalado deve subir com
+  `tuios-session=active`, hostname `tuios-prime` e `advplc dev`
+
+Sucesso = banner **`INSTAL-TEST-OK`**.
+Logs: `/tmp/tuios-install-test.*/log`.
+
+### 4. Checklist de boot bem-sucedido
 
 - [ ] `booting system configuration /nix/store/*-nixos-system-tuios-prime-*`
 - [ ] Nenhum `[FAILED]` no systemd

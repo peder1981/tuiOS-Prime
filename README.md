@@ -41,6 +41,19 @@ just qemu-kernel
 just qemu-fase1
 ```
 
+## 💾 Instalar no disco
+
+A ISO já traz o instalador interativo **`tuios-instalar`** (PT-BR):
+
+```bash
+just iso                                                          # 1. build da ISO
+sudo dd if=result/iso/nixos-*.iso of=/dev/sdX bs=4M status=progress conv=fsync  # 2. gravar pendrive
+# 3. bootar pelo pendrive e rodar: tuios-instalar
+```
+
+Guia completo: [docs/instalacao/instalar.md](docs/instalacao/instalar.md).
+Teste automatizado: `just test-install` (QEMU: instala → boota o disco).
+
 ## 📁 Estrutura
 
 ```
